@@ -224,9 +224,25 @@ class MainWindow(QMainWindow):
         self.status.showMessage(f"Loaded {len(devices)} devices", 3000)
 
     def upsert_device_row(self, dev: Dict[str, Any]) -> None:
-        dev_id = str(dev.get("id") or dev.get("mac") or dev.get("ip") or "")
+        # Prefer MAC as stable ID, fallback to IP
+        dev_id = dev.get("mac") or dev.get("id") or dev.get("ip") or ""
+        dev_id = str(dev_id).strip()
         if not dev_id:
             return
+
+        # Check if we already have this device by IP (in case MAC was discovered later)
+        ip = dev.get("ip")
+        if ip and dev.get("mac"):
+            # Search for existing row with same IP but different ID
+            for existing_id, existing_row in list(self._rows_by_id.items()):
+                if existing_id != dev_id:
+                    existing_ip = self.table.item(existing_row, 1)
+                    if existing_ip and existing_ip.text() == ip:
+                        # This is the same device, update the ID mapping
+                        del self._rows_by_id[existing_id]
+                        self._rows_by_id[dev_id] = existing_row
+                        break
+
         row = self._rows_by_id.get(dev_id)
         if row is None:
             row = self.table.rowCount()

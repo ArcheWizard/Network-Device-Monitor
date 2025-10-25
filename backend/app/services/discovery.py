@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import logging
-import socket
 import subprocess
 from typing import Optional, Set
 
@@ -19,7 +18,8 @@ def _arp_scan_sync(
     """Synchronous ARP scan with fallback to system tools for WiFi."""
     # Try scapy first
     try:
-        from scapy.all import ARP, Ether, srp  # type: ignore
+        from scapy.all import srp
+        from scapy.layers.l2 import ARP, Ether
     except Exception as e:
         logger.warning("ARP scan skipped: scapy import failed: %s", e)
         return _arp_scan_fallback(cidr, interface)
@@ -37,9 +37,10 @@ def _arp_scan_sync(
             ip = getattr(received, "psrc", None)
             mac = getattr(received, "hwsrc", None)
             if ip:
-                devices.append(
-                    {"ip": str(ip), "mac": str(mac) if mac else None, "source": "arp"}
-                )
+                entry: dict = {"ip": str(ip), "source": "arp"}
+                if mac:
+                    entry["mac"] = str(mac)
+                devices.append(entry)
 
         # If scapy returned nothing, try fallback (WiFi compatibility)
         if not devices:
@@ -55,7 +56,7 @@ def _arp_scan_sync(
 
 
 def _arp_scan_fallback(cidr: str, interface: str | None = None) -> list[dict]:
-    """Fallback ARP scan using system arp-scan or nmap for WiFi compatibility."""
+    """Fallback ARP scan using system arp-scan or ip neigh for WiFi compatibility."""
     devices: list[dict] = []
 
     # Try arp-scan first (most reliable)
@@ -64,31 +65,24 @@ def _arp_scan_fallback(cidr: str, interface: str | None = None) -> list[dict]:
         if not interface:
             pairs = interface_cidrs()
             if pairs:
-                interface = pairs[0][0]  # Use first detected interface
-                logger.debug("Auto-detected interface for arp-scan: %s", interface)
+                interface = pairs[0][0]
 
-        cmd = ["arp-scan", "--localnet", "--interface", interface or "auto"]
+        cmd = ["arp-scan", "--localnet"]
+        if interface:
+            cmd += ["--interface", interface]
         logger.debug("Running arp-scan: %s", " ".join(cmd))
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
 
         if result.returncode == 0:
             for line in result.stdout.splitlines():
-                # Parse: 192.168.1.1	aa:bb:cc:dd:ee:ff	Vendor Name
-                parts = line.split("\t")
-                if len(parts) >= 2:
-                    ip, mac = parts[0].strip(), parts[1].strip()
-                    if ip and ":" in mac:
-                        devices.append({"ip": ip, "mac": mac, "source": "arp-scan"})
-
-            if devices:
-                logger.info("Fallback arp-scan found %d devices", len(devices))
-                return devices
+                parts = line.strip().split()
+                # Typical: "<ip>\t<mac>\t<vendor...>"
+                if len(parts) >= 2 and "." in parts[0] and ":" in parts[1]:
+                    ip = parts[0]
+                    mac = parts[1]
+                    devices.append({"ip": ip, "mac": mac, "source": "arp-scan"})
         else:
-            logger.debug(
-                "arp-scan failed with return code %d: %s",
-                result.returncode,
-                result.stderr,
-            )
+            logger.debug("arp-scan returned non-zero: %s", result.returncode)
     except FileNotFoundError:
         logger.debug("arp-scan not installed, trying ARP cache")
     except subprocess.TimeoutExpired:
@@ -98,25 +92,29 @@ def _arp_scan_fallback(cidr: str, interface: str | None = None) -> list[dict]:
 
     # Try reading system ARP cache as last resort
     try:
-        logger.debug("Reading system ARP cache")
+        logger.debug("Reading system ARP cache via 'ip neigh'")
         result = subprocess.run(
             ["ip", "neigh"], capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
             for line in result.stdout.splitlines():
-                # Parse: 192.168.1.1 dev wlp8s0 lladdr aa:bb:cc:dd:ee:ff REACHABLE
+                # Example: "192.168.1.1 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE"
+                line = line.strip()
+                if not line or "lladdr" not in line:
+                    continue
                 parts = line.split()
-                if len(parts) >= 5 and parts[3] == "lladdr":
-                    ip, mac = parts[0], parts[4]
-                    if ":" in mac:
-                        devices.append({"ip": ip, "mac": mac, "source": "arp-cache"})
-
-            if devices:
-                logger.info("Fallback ARP cache found %d devices", len(devices))
-            else:
-                logger.warning(
-                    "ARP cache is empty - try pinging devices first to populate it"
-                )
+                ip = parts[0]
+                mac = None
+                for i, tok in enumerate(parts):
+                    if tok == "lladdr" and i + 1 < len(parts):
+                        mac = parts[i + 1]
+                        break
+                entry: dict = {"ip": ip, "source": "ip-neigh"}
+                if mac:
+                    entry["mac"] = mac
+                # Avoid duplicates by IP
+                if not any(d.get("ip") == ip for d in devices):
+                    devices.append(entry)
     except Exception as e:
         logger.debug("Failed to read ARP cache: %s", e)
 
@@ -140,8 +138,6 @@ async def ping_sweep(
         network = ipaddress.ip_network(cidr, strict=False)
     except Exception:
         return []
-
-    # Limit concurrency to avoid spawning too many processes
     sem = asyncio.Semaphore(max(1, int(concurrency)))
 
     async def ping_one(ip: str) -> bool:
@@ -153,7 +149,6 @@ async def ping_sweep(
             str(int(timeout)),
             ip,
         ]
-        # Some distros use busybox ping with -w timeout; but -W 1 -c 1 is common on Linux
         try:
             async with sem:
                 proc = await asyncio.create_subprocess_exec(
@@ -161,7 +156,7 @@ async def ping_sweep(
                     stdout=asyncio.subprocess.DEVNULL,
                     stderr=asyncio.subprocess.DEVNULL,
                 )
-                await proc.wait()
+                await proc.communicate()
                 return proc.returncode == 0
         except Exception:
             return False
@@ -187,102 +182,42 @@ async def mdns_discover(timeout: float = 3.0) -> list[dict]:
 
     def _mdns_sync(t: float) -> list[dict]:
         try:
-            from zeroconf import Zeroconf, ServiceBrowser
+            from zeroconf import ServiceBrowser, Zeroconf  # type: ignore
         except Exception as e:
-            logger.warning("mDNS discovery skipped: zeroconf import failed: %s", e)
+            logger.debug("zeroconf not available: %s", e)
             return []
 
-        class _TypeListener:
+        results: list[dict] = []
+
+        class _Listener:
             def __init__(self):
-                self.types: Set[str] = set()
+                self.items: list[dict] = []
 
-            def add_service(self, zc, type_, name):  # type: ignore[no-redef]
-                self.types.add(name)
+            def remove_service(self, zc, type_, name):  # noqa: D401
+                return
+
+            def add_service(self, zc, type_, name):
+                # We do not resolve here to keep it simple/fast
+                self.items.append({"service": type_, "hostname": name})
 
             def update_service(self, zc, type_, name):
-                return
-
-            def remove_service(self, zc, type_, name):
-                return
-
-        class _InstanceListener:
-            def __init__(self, zc: "Zeroconf", stype: str, out: list[dict]):
-                self.zc = zc
-                self.stype = stype
-                self.out = out
-
-            def add_service(self, zc, type_, name):  # type: ignore[no-redef]
-                try:
-                    info = self.zc.get_service_info(
-                        self.stype, name, timeout=int(max(1.0, t) * 1000)
-                    )
-                    if not info:
-                        return
-                    addrs: list[str] = []
-                    for a in getattr(info, "addresses", []) or []:
-                        try:
-                            addrs.append(socket.inet_ntoa(a))
-                        except Exception:
-                            try:
-                                addrs.append(socket.inet_ntop(socket.AF_INET6, a))
-                            except Exception:
-                                pass
-                    for ip in addrs:
-                        self.out.append(
-                            {
-                                "ip": ip,
-                                "mac": None,
-                                "hostname": getattr(info, "server", None),
-                                "service": self.stype,
-                                "source": "mdns",
-                            }
-                        )
-                except Exception as e:
-                    logger.debug("mDNS resolve error for %s: %s", name, e)
-
-            def update_service(self, zc, type_, name):
-                return
-
-            def remove_service(self, zc, type_, name):
                 return
 
         zc = Zeroconf()
+        listener = _Listener()
         try:
-            found: list[dict] = []
-            type_listener = _TypeListener()
-            ServiceBrowser(zc, "_services._dns-sd._udp.local.", type_listener)  # type: ignore[arg-type]
-
+            # Common service types might be discovered by browsing the special meta-service
+            ServiceBrowser(zc, "_services._dns-sd._udp.local.", listener)
+            # Simple sleep to accumulate results
             import time as _time
 
-            deadline = _time.time() + t / 2
-            while _time.time() < deadline:
-                _time.sleep(0.1)
-
-            service_types = list(type_listener.types)
-            if not service_types:
-                service_types = [
-                    "_http._tcp.local.",
-                    "_workstation._tcp.local.",
-                    "_ssh._tcp.local.",
-                ]
-
-            browsers: list[ServiceBrowser] = []
-            listeners: list[_InstanceListener] = []
-            for st in service_types[:10]:
-                lst = _InstanceListener(zc, st, found)
-                listeners.append(lst)
-                browsers.append(ServiceBrowser(zc, st, lst))  # type: ignore[arg-type]
-
-            deadline = _time.time() + max(0.2, t / 2)
-            while _time.time() < deadline:
-                _time.sleep(0.1)
-
-            return found
+            _time.sleep(max(1, int(t)))
         finally:
-            try:
-                zc.close()
-            except Exception:
-                pass
+            zc.close()
+
+        # We don't attempt to resolve IPs here; keep structure consistent
+        results.extend(listener.items)
+        return results
 
     return await loop.run_in_executor(None, _mdns_sync, timeout)
 
@@ -297,56 +232,70 @@ async def scan(
 
     Priority of sources: ARP (with MAC) then ICMP ping (IP only). mDNS optional later.
     """
-    _cidr_val = getattr(settings, "NETWORK_CIDR", "") if cidr is None else cidr
-    cidr = _cidr_val.strip() if isinstance(_cidr_val, str) and _cidr_val else None
-    _iface_val = (
-        getattr(settings, "INTERFACE", None) if interface is None else interface
-    )
-    iface: Optional[str] = (
-        _iface_val.strip() if isinstance(_iface_val, str) and _iface_val else None
+    # Determine effective CIDR/interface with fallbacks
+    raw_cidr = cidr if cidr is not None else getattr(settings, "NETWORK_CIDR", "")
+    raw_iface = (
+        interface if interface is not None else getattr(settings, "INTERFACE", None)
     )
 
-    if not cidr:
+    eff_cidr: Optional[str] = (
+        raw_cidr.strip() if isinstance(raw_cidr, str) and raw_cidr else None
+    )
+    eff_iface: Optional[str] = (
+        raw_iface.strip() if isinstance(raw_iface, str) and raw_iface else None
+    )
+
+    if not eff_cidr:
         # Auto-detect first non-loopback IPv4 interface network
         pairs = interface_cidrs()
         if pairs:
-            # If user supplied INTERFACE, try to find matching CIDR
-            if iface:
-                for name, c in pairs:
-                    if name == iface:
-                        cidr = c
-                        break
-            # Fallback to first detected
-            if not cidr:
-                cidr = pairs[0][1]
+            eff_cidr = pairs[0][1]
+
     # Final fallback if still not set
-    if not cidr:
-        cidr = "192.168.1.0/24"
+    if not eff_cidr:
+        eff_cidr = "192.168.1.0/24"
 
     # Run ARP scan
-    logger.info("Starting ARP scan: cidr=%s iface=%s", cidr, iface)
-    devices = await arp_scan(cidr, interface=iface, timeout=arp_timeout)
+    logger.info("Starting ARP scan: cidr=%s iface=%s", eff_cidr, eff_iface)
+    devices = await arp_scan(eff_cidr, interface=eff_iface, timeout=arp_timeout)
     seen_ips: Set[str] = {d["ip"] for d in devices if "ip" in d}
 
     # ICMP ping sweep to catch hosts that didn't answer ARP (e.g., some stacks)
     try:
-        alive_ips = await ping_sweep(cidr, timeout=ping_timeout)
+        alive_ips = await ping_sweep(eff_cidr, timeout=ping_timeout)
     except Exception:
         alive_ips = []
 
     for ip in alive_ips:
         if ip not in seen_ips:
-            devices.append({"ip": ip, "mac": None, "source": "icmp"})
-            seen_ips.add(ip)
+            devices.append({"ip": ip, "source": "icmp"})
 
-    # mDNS discovery
+    # Try to resolve MACs for ICMP-only hosts via ARP cache (so OUI can work)
+    # (Best-effort; rely on _arp_scan_fallback to have primed cache)
+    try:
+        cache = _arp_scan_fallback(eff_cidr, eff_iface)
+        mac_by_ip = {d["ip"]: d.get("mac") for d in cache if "ip" in d}
+        for d in devices:
+            ip = d.get("ip")
+            if ip and not d.get("mac"):
+                mac = mac_by_ip.get(ip)
+                if mac:
+                    d["mac"] = mac
+    except Exception as e:
+        logger.debug("Failed to enrich MACs from ARP cache: %s", e)
+
+    # mDNS discovery (best-effort merge by hostname)
     try:
         mdns = await mdns_discover(timeout=2.5)
         for entry in mdns:
-            ip = entry.get("ip")
-            if ip and ip not in seen_ips:
-                devices.append(entry)
-                seen_ips.add(ip)
+            host = entry.get("hostname")
+            if not host:
+                continue
+            # Attach hostname for first device without one
+            for d in devices:
+                if not d.get("hostname"):
+                    d["hostname"] = host
+                    break
     except Exception as e:
         logger.debug("mDNS discover failed: %s", e)
 

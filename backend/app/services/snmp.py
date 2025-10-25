@@ -28,12 +28,22 @@ try:
         ObjectType,
         SnmpEngine,
         UdpTransportTarget,
-        getCmd,
     )
 
     PYSNMP_AVAILABLE = True
 except ImportError:
     logger.warning("pysnmp not installed. SNMP functionality will be disabled.")
+    # Provide Any-typed fallbacks so static analysis doesn't complain
+    from typing import Any as _Any
+
+    CommunityData: _Any = None
+    ContextData: _Any = None
+    ObjectIdentity: _Any = None
+    ObjectType: _Any = None
+    SnmpEngine: _Any = None
+    UdpTransportTarget: _Any = None
+    getCmd: _Any = None
+
     PYSNMP_AVAILABLE = False
 
 
@@ -62,12 +72,12 @@ async def snmp_get(
         return None
 
     try:
-        iterator = getCmd(  # type: ignore
-            SnmpEngine(),  # type: ignore
-            CommunityData(community),  # type: ignore
-            UdpTransportTarget((target, port), timeout=int(timeout), retries=retries),  # type: ignore
-            ContextData(),  # type: ignore
-            ObjectType(ObjectIdentity(oid)),  # type: ignore
+        iterator = getCmd(
+            SnmpEngine(),
+            CommunityData(community),
+            UdpTransportTarget((target, port), timeout=int(timeout), retries=retries),
+            ContextData(),
+            ObjectType(ObjectIdentity(oid)),
         )
 
         errorIndication, errorStatus, errorIndex, varBinds = await iterator
@@ -91,6 +101,8 @@ async def snmp_get(
     except Exception as e:
         logger.debug("SNMP query failed for %s OID %s: %s", target, oid, e)
         return None
+    # Ensure Optional[str] is always returned
+    return None
 
 
 async def snmp_get_bulk(

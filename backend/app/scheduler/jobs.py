@@ -45,7 +45,7 @@ async def discovery_job():
                 dev_id = d.get("mac") or d.get("ip") or "unknown"
 
                 # Check if this is a new device
-                existing = await repo.get_device(dev_id)  # type: ignore[attr-defined]
+                existing = await repo.get_device(dev_id)
                 is_new = existing is None
 
                 device_data = {
@@ -56,11 +56,13 @@ async def discovery_job():
                     "vendor": d.get("vendor"),
                     "device_type": None,
                     "status": "unknown",  # Will be updated by monitoring
-                    "first_seen": now,
+                    "first_seen": now
+                    if is_new
+                    else (existing.get("first_seen") if existing else now),
                     "last_seen": now,
                     "tags": {"source": d.get("source", "unknown")},
                 }
-                await repo.upsert_device(device_data)  # type: ignore[attr-defined]
+                await repo.upsert_device(device_data)
 
                 # Broadcast newly discovered device via WebSocket
                 if is_new:
@@ -149,16 +151,14 @@ async def monitoring_tick():
                         }
                     )
 
-                # Update device status in SQLite
+                # Update device status in SQLite and broadcast transitions
                 current_status = metrics_data["status"]
                 previous_status = device.get("status")
 
-                if current_status != previous_status:
-                    print(
-                        f"[scheduler] device {ip} status changed: {previous_status} → {current_status}"
-                    )
-
-                    # Broadcast status change event
+                if (
+                    current_status in ("up", "down")
+                    and current_status != previous_status
+                ):
                     event_type = (
                         "device_up" if current_status == "up" else "device_down"
                     )
@@ -173,26 +173,23 @@ async def monitoring_tick():
                             "ts": int(time.time()),
                         }
                     )
+                    print(
+                        f"[scheduler] device {ip} status changed: {previous_status} → {current_status}"
+                    )
 
                 # Update last_seen timestamp and status
-                if current_status == "up":
-                    await repo.upsert_device(
-                        {
-                            "id": device_id,
-                            "ip": ip,
-                            "status": current_status,
-                            "last_seen": int(time.time()),
-                        }
-                    )
-                else:
-                    # Update status even if down
-                    await repo.upsert_device(
-                        {
-                            "id": device_id,
-                            "ip": ip,
-                            "status": current_status,
-                        }
-                    )
+                now = int(time.time())
+                await repo.upsert_device(
+                    {
+                        "id": device_id,
+                        "status": current_status
+                        if current_status in ("up", "down")
+                        else previous_status,
+                        "last_seen": now
+                        if current_status == "up"
+                        else device.get("last_seen"),
+                    }
+                )
 
             except Exception as e:
                 print(f"[scheduler] monitoring error for {ip}: {e}")

@@ -28,24 +28,39 @@ class SqliteInventoryRepo:
         self._conn = conn
 
     async def upsert_device(self, data: dict) -> None:
+        # If we have a MAC, check if there's an existing device with same IP but IP-based ID
+        mac = data.get("mac")
+        ip = data.get("ip")
+        dev_id = data.get("id")
+
+        if mac and ip:
+            # Check for IP-only entry to merge
+            async with self._conn.execute(
+                "SELECT id FROM devices WHERE ip=? AND id=? AND mac IS NULL", (ip, ip)
+            ) as cur:
+                old_row = await cur.fetchone()
+                if old_row:
+                    # Delete the IP-only entry; we'll create MAC-based one below
+                    await self._conn.execute("DELETE FROM devices WHERE id=?", (ip,))
+
         tags_str = json.dumps(data.get("tags") or {})
         async with self._conn.execute(
             """
-			INSERT INTO devices(id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, tags)
-			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET
-			  ip=excluded.ip,
-			  mac=excluded.mac,
-			  hostname=excluded.hostname,
-			  vendor=excluded.vendor,
-			  device_type=excluded.device_type,
-			  status=excluded.status,
-			  first_seen=COALESCE(devices.first_seen, excluded.first_seen),
-			  last_seen=excluded.last_seen,
-			  tags=excluded.tags
-			""",
+            INSERT INTO devices(id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, tags)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              ip=COALESCE(excluded.ip, devices.ip),
+              mac=COALESCE(excluded.mac, devices.mac),
+              hostname=COALESCE(excluded.hostname, devices.hostname),
+              vendor=COALESCE(excluded.vendor, devices.vendor),
+              device_type=COALESCE(excluded.device_type, devices.device_type),
+              status=COALESCE(excluded.status, devices.status),
+              first_seen=COALESCE(devices.first_seen, excluded.first_seen),
+              last_seen=COALESCE(excluded.last_seen, devices.last_seen),
+              tags=COALESCE(excluded.tags, devices.tags)
+            """,
             (
-                data.get("id"),
+                dev_id,
                 data.get("ip"),
                 data.get("mac"),
                 data.get("hostname"),

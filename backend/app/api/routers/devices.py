@@ -16,7 +16,7 @@ async def list_devices(request: Request):
     # Try to use the SQLite repository if initialized; fallback to stub
     repo = getattr(request.app.state, "inventory_repo", None)
     if repo:
-        items = await repo.list_devices()  # type: ignore[attr-defined]
+        items = await repo.list_devices()
         # Convert dicts to Device models for response_model enforcement
         return [Device(**it) for it in items]
     return list(_DEVICES.values())
@@ -27,7 +27,7 @@ async def get_device(device_id: str, request: Request):
     """Get a single device by ID."""
     repo = getattr(request.app.state, "inventory_repo", None)
     if repo:
-        item = await repo.get_device(device_id)  # type: ignore[attr-defined]
+        item = await repo.get_device(device_id)
         if item:
             return Device(**item)
     # Fallback to in-memory stub
@@ -107,7 +107,7 @@ async def discovery_scan(request: Request, req: DiscoveryScanRequest | None = No
                 "last_seen": now,
                 "tags": {"source": d.get("source", "unknown")},
             }
-            await repo.upsert_device(device_data)  # type: ignore[attr-defined]
+            await repo.upsert_device(device_data)
 
     return {
         "count": len(devices),

@@ -7,8 +7,8 @@ import psutil
 try:
     from netaddr import IPAddress, IPNetwork
 except Exception:  # pragma: no cover - optional import until deps installed
-    IPAddress = None  # type: ignore
-    IPNetwork = None  # type: ignore
+    IPAddress = None
+    IPNetwork = None
 
 
 def auto_detect_interfaces() -> List[str]:

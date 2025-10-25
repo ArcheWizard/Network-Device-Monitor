@@ -13,14 +13,22 @@ logger = logging.getLogger(__name__)
 
 # Import InfluxDB client (optional dependency)
 try:
-    from influxdb_client.client.influxdb_client import InfluxDBClient  # type: ignore
-    from influxdb_client.client.write.point import Point  # type: ignore
-    from influxdb_client.domain.write_precision import WritePrecision  # type: ignore
-    from influxdb_client.client.write_api import SYNCHRONOUS  # type: ignore
+    from influxdb_client.client.influxdb_client import InfluxDBClient
+    from influxdb_client.client.write.point import Point
+    from influxdb_client.domain.write_precision import WritePrecision
+    from influxdb_client.client.write_api import SYNCHRONOUS
 
     INFLUX_AVAILABLE = True
 except ImportError:
     logger.warning("influxdb-client not installed. Metrics storage will be disabled.")
+    # Provide Any-typed fallbacks to satisfy type checking
+    from typing import Any as _Any
+
+    InfluxDBClient: _Any = None
+    Point: _Any = None
+    WritePrecision: _Any = None
+    SYNCHRONOUS: _Any = None
+
     INFLUX_AVAILABLE = False
 
 
@@ -43,12 +51,12 @@ class InfluxMetricsWriter:
         self.token = token
         self.org = org
         self.bucket = bucket
-        self.client: Optional[InfluxDBClient] = None
+        self.client: Optional[Any] = None
 
     def connect(self):
         """Establish connection to InfluxDB."""
         if self.client is None:
-            self.client = InfluxDBClient(url=self.url, token=self.token, org=self.org)  # type: ignore
+            self.client = InfluxDBClient(url=self.url, token=self.token, org=self.org)
             logger.info("Connected to InfluxDB at %s", self.url)
 
     def close(self):
@@ -81,7 +89,7 @@ class InfluxMetricsWriter:
             return False
 
         try:
-            point = Point(measurement)  # type: ignore
+            point = Point(measurement)
 
             # Add tags
             for key, value in tags.items():
@@ -94,10 +102,10 @@ class InfluxMetricsWriter:
 
             # Add timestamp
             if timestamp:
-                point = point.time(timestamp, WritePrecision.S)  # type: ignore
+                point = point.time(timestamp, WritePrecision.S)
 
             # Write to InfluxDB
-            write_api = self.client.write_api(write_options=SYNCHRONOUS)  # type: ignore
+            write_api = self.client.write_api(write_options=SYNCHRONOUS)
             write_api.write(bucket=self.bucket, org=self.org, record=point)
 
             logger.debug("Wrote metric: %s %s %s", measurement, tags, fields)
