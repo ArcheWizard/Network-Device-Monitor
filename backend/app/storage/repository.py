@@ -1,0 +1,6 @@
+from typing import Protocol
+
+
+class InventoryRepo(Protocol):
+    async def upsert_device(self, data: dict) -> None: ...
+    async def list_devices(self) -> list[dict]: ...
