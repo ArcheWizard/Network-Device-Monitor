@@ -5,7 +5,10 @@ router = APIRouter()
 
 @router.get("/metrics/latency")
 async def get_latency(
-    device_id: str, limit: int = 100, start: str = "-1h", request: Request = None # type: ignore
+    device_id: str,
+    limit: int = 100,
+    start: str = "-1h",
+    request: Request = None,  # type: ignore
 ):
     """Get latency metrics for a device from InfluxDB.
 
@@ -39,4 +42,8 @@ async def get_latency(
         import logging
 
         logging.error("Failed to query metrics for %s: %s", device_id, e)
-        return {"device_id": device_id, "points": [], "error": str(e)}
+        return {
+            "device_id": device_id,
+            "points": [],
+            "error": "An internal error has occurred.",
+        }

@@ -4,7 +4,8 @@
 
 - API Layer (FastAPI)
   - REST endpoints for devices, metrics, config
-  - WebSocket for real-time events (device up/down, latency updates)
+  - WebSocket for real-time events (device_up/device_down/latency/device_discovered)
+  - ConnectionManager orchestrates multi-client broadcast
 - Services
   - discovery: ARP sweep (scapy), ICMP ping sweep, mDNS browse (zeroconf)
   - identification: OUI lookup, banner/port scan (select ports), SNMP sysName/sysDescr
@@ -20,6 +21,7 @@
 - Frontend (PyQt)
   - subscribes WS for updates; REST for data snapshots
   - topology view (later) using networkx + graph widget
+  - QThread workers: FetchDevicesWorker, TriggerScanWorker, EventStreamWorker
 
 ## Data Flow
 
@@ -28,6 +30,7 @@
 3. devices persisted to SQLite; metrics scheduled for monitoring
 4. monitoring writes latency/loss to InfluxDB (or SQLite fallback)
 5. notifications triggered by thresholds; pushed via WS and durable log
+6. PyQt UI receives events over WS and updates table; periodic snapshots fetched over REST
 
 ## Security/Permissions
 

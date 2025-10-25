@@ -107,7 +107,9 @@ class APIClient:
                 backoff = min(backoff * 2, max_backoff)
 
 
-async def fetch_devices(base_url: str = "http://127.0.0.1:8000") -> list[dict[str, Any]]:
+async def fetch_devices(
+    base_url: str = "http://127.0.0.1:8000",
+) -> list[dict[str, Any]]:
     """Convenience function for one-off device fetches."""
     client = APIClient(base_url)
     try:

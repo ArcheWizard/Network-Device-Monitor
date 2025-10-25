@@ -41,7 +41,7 @@ def interface_cidrs() -> List[Tuple[str, str]]:
             ):
                 if IPAddress and IPNetwork and getattr(addr, "netmask", None):
                     try:
-                        ip = IPAddress(addr.address)
+                        IPAddress(addr.address)
                         network = IPNetwork(f"{addr.address}/{addr.netmask}")
                         cidr = str(network.cidr)
                     except Exception:

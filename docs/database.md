@@ -2,9 +2,28 @@
 
 ## SQLite (inventory)
 
-Tables:
+Schema used by the inventory repository (`app/storage/sqlite.py`):
 
-- devices(id TEXT PK, ip TEXT, mac TEXT, hostname TEXT, vendor TEXT, device_type TEXT, first_seen INTEGER, last_seen INTEGER, tags TEXT JSON)
+```sql
+CREATE TABLE IF NOT EXISTS devices (
+  id TEXT PRIMARY KEY,
+  ip TEXT,
+  mac TEXT,
+  hostname TEXT,
+  vendor TEXT,
+  device_type TEXT,
+  status TEXT,
+  first_seen INTEGER,
+  last_seen INTEGER,
+  tags TEXT
+);
+```
+
+Notes:
+
+- `status` is one of: `up`, `down`, `unknown`.
+- `tags` is a JSON-encoded object stored as TEXT.
+- `first_seen`/`last_seen` are Unix timestamps (seconds).
 
 ## InfluxDB (metrics)
 

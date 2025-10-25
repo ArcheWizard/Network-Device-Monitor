@@ -1,20 +1,20 @@
 # Network Device Mapper & Monitor
 
-**Status:** 🚧 In Development - MVP Discovery, Storage, Identification, Monitoring & WebSocket Streaming Complete
+**Status:** ✅ **MVP Complete** - Milestone 1 finished! Discovery, Storage, Identification, Monitoring, WebSocket Streaming & PyQt UI all operational.
 
-Async Python backend + PyQt frontend to discover devices on local networks, identify type/manufacturer, and monitor health (latency, uptime, bandwidth, connectivity) with alerts and history.
+Async Python backend + PyQt6 frontend to discover devices on local networks, identify type/manufacturer, and monitor health (latency, uptime, bandwidth, connectivity) with alerts and history.
 
-**Current Phase:** Milestone 1F - PyQt UI Development
+**Current Phase:** Milestone 1 Complete - Ready for Milestone 2 (SNMP & Advanced Metrics)
 
-## Features (Planned)
+## Features
 
-- ✅ Network discovery: ARP (scapy), ICMP ping sweep, mDNS/Bonjour (zeroconf)
-- ✅ Device identification: OUI lookup (IEEE database), SNMP v2c (sysName, sysDescr, etc.)
+- ✅ Network discovery: ARP (scapy), ICMP ping sweep, mDNS/Bonjour (zeroconf), WiFi fallback
+- ✅ Device identification: OUI lookup (IEEE database), SNMP v2c (sysName, sysDescr, etc.), DNS reverse lookup
 - ✅ Health monitoring: periodic ping latency + packet loss stored in InfluxDB
 - ✅ Real-time WebSocket streaming: device discovery, status changes, latency metrics
-- 🚧 Notifications: device offline/online, high latency thresholds
 - ✅ Data persistence: SQLite for inventory + InfluxDB for time-series metrics
-- ⏳ PyQt6 desktop GUI with real-time updates
+- ✅ PyQt6 desktop GUI with real-time updates, device table, and monitoring metrics
+- 🚧 Notifications: device offline/online, high latency thresholds (basic implementation, needs enhancement)
 
 **Legend:** ✅ Complete | 🚧 In Progress | ⏳ Planned
 
@@ -92,7 +92,7 @@ python frontend/pyqt/src/app.py
 
 ## Current Status
 
-**✅ Completed (Milestone 0 + Phases 1A-1E):**
+**✅ Completed (Milestone 0 + Milestone 1 A–F):**
 
 - Project structure and scaffolding
 - FastAPI backend with health endpoint
@@ -113,11 +113,12 @@ python frontend/pyqt/src/app.py
 - CI/CD workflows
 - Comprehensive documentation
 
-**⏳ Next Up (Phase 1F):**
+**⏳ Next Up (Milestone 2 — SNMP & Advanced Metrics):**
 
-- PyQt device table UI with real-time WebSocket updates
-- API client implementation
-- Status indicators and metrics display
+- SNMP interface table (ifIndex/ifDescr/ifSpeed)
+- Bandwidth tracking via ifIn/OutOctets → bps
+- Metrics charts in PyQt (latency + bandwidth)
+- Improved alerts (thresholds via WS/log)
 
 See full [Roadmap](docs/roadmap.md) for future milestones.
 
@@ -213,4 +214,4 @@ See full [Roadmap](docs/roadmap.md) for details.
 
 ---
 
-**Next Implementation Phase:** [Milestone 1F - PyQt UI Development](docs/NEXT_STEPS.md)
+**Next Implementation Phase:** [Milestone 2 — SNMP & Advanced Metrics](docs/NEXT_STEPS.md)

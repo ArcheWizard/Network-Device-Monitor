@@ -1,164 +1,81 @@
-# Next Steps: Milestone 1F - PyQt UI Development
+# Next Steps: Milestone 2 — SNMP & Advanced Metrics
 
 ## Goal
 
-Implement PyQt6 desktop UI with device table, real-time WebSocket updates, and monitoring metrics display.
+Add SNMP-based interface statistics and bandwidth tracking, expose metrics via API, and visualize history in the PyQt UI. Improve alerting.
 
-## Implementation Plan
+## Outcomes
 
-### Step 1: REST API Client (Priority: HIGH)
+- SNMP interface table discovery (indexes, descriptions, speeds)
+- Periodic polling of byte counters (ifInOctets/ifOutOctets)
+- Bandwidth calculation (bps) and storage in InfluxDB
+- New REST endpoint: `GET /api/metrics/bandwidth`
+- PyQt charts for latency and bandwidth over time
+- Improved alerting pipeline (thresholds → events)
 
-**File:** `frontend/pyqt/src/api_client.py`
+## Plan
 
-**Tasks:**
+### 1) SNMP Interface Table (HIGH)
 
-1. Implement `APIClient` class with async HTTP methods
-2. Add `fetch_devices() -> list[dict]` to get all devices from `/api/devices`
-3. Add `trigger_scan(cidr: str = None) -> dict` to POST `/api/discovery/scan`
-4. Add error handling and connection retry logic
-5. Support configurable backend URL (default: <http://localhost:8000>)
+Files: `backend/app/services/snmp.py`, `backend/app/services/identification.py`
 
-**Example Code Pattern:**
+- Implement `snmp_get_table(target, base_oid)` helper
+- Retrieve: `ifIndex`, `ifDescr`, `ifSpeed`, `ifInOctets`, `ifOutOctets`
+- Map interfaces by index and cache on first poll per device
+- Respect settings: community, port, timeout
 
-```python
-import httpx
-from typing import Optional
+### 2) Bandwidth Poller (HIGH)
 
-class APIClient:
-    def __init__(self, base_url: str = "http://localhost:8000"):
-        self.base_url = base_url
-        self.client = httpx.AsyncClient(base_url=base_url)
+Files: `backend/app/scheduler/jobs.py`, `backend/app/storage/influx.py`
 
-    async def fetch_devices(self) -> list[dict]:
-        response = await self.client.get("/api/devices")
-        response.raise_for_status()
-        return response.json()
+- Add periodic job to read ifIn/OutOctets for devices with SNMP enabled
+- Compute deltas/interval → `in_bps`, `out_bps` with counter wrap handling
+- Write points to InfluxDB: measurement `bandwidth`, tags `{device_id, ifIndex}`, fields `{in_bps, out_bps}`
 
-    async def trigger_scan(self, cidr: Optional[str] = None) -> dict:
-        payload = {}
-        if cidr:
-            payload["cidr"] = cidr
-        response = await self.client.post("/api/discovery/scan", json=payload)
-        response.raise_for_status()
-        return response.json()
-```
+### 3) API: GET /api/metrics/bandwidth (MEDIUM)
 
-- `{"type": "latency", "device_id": "...", "latency_avg": 12.4, "packet_loss": 0.0, "ts": 123456789}`
+Files: `backend/app/api/routers/metrics.py`
 
-### Step 3: Metrics Streaming (Priority: MEDIUM)
+- Add query handler mirroring latency endpoint contract
+- Params: `device_id`, `ifIndex?`, `limit`, `start` (Influx duration)
+- Response: `{ device_id, ifIndex?, points: [{ ts, in_bps, out_bps }] }`
 
-**Tasks:**
+### 4) PyQt Charts (MEDIUM)
 
-1. Stream latency metrics in real-time from monitoring_tick()
-2. Include device_id, latency metrics, and timestamp
-3. Throttle updates to avoid overwhelming clients (e.g., max 1 update per device per second)
+Files: `frontend/pyqt/src/main_window.py` (or new chart widget)
 
-### Step 4: Testing (Priority: LOW)
+- Add simple time-series charts for latency and bandwidth (pick lightweight lib or QtCharts)
+- Toggle device/iface selection and timeframe (e.g., 1h/24h)
+- Keep updates lightweight; pull snapshots via REST and stream deltas via WS (future)
 
-**File:** `backend/tests/test_websocket.py` (new file)
+### 5) Alerts (MEDIUM)
 
-**Tasks:**
+Files: `backend/app/services/notifications.py`, `backend/app/scheduler/jobs.py`
 
-1. Test WebSocket connection/disconnection
-2. Test broadcast to multiple clients
-3. Test event message formats
-4. Test graceful handling of client disconnections
+- Trigger alerts when `packet_loss > ALERT_PACKET_LOSS` or `ms > ALERT_LATENCY_MS`
+- Extend for bandwidth thresholds (optional)
+- Broadcast alert events on WebSocket; log to stdout/file
 
-## Success Criteria (WebSocket)
+## Success Criteria
 
-- [ ] Multiple WebSocket clients can connect simultaneously
-- [ ] Device discovery results broadcast to all connected clients
-- [ ] Status changes (up/down) broadcast in real-time
-- [ ] Latency metrics stream to connected clients
-- [ ] Clients can reconnect after disconnect
-- [ ] Unit tests pass
+- [ ] Bandwidth points written to InfluxDB for at least one interface per device
+- [ ] `GET /api/metrics/bandwidth` returns series with `in_bps/out_bps`
+- [ ] Charts render latency and bandwidth for selected device
+- [ ] Alerts are emitted on threshold breach and visible in logs/WS
+- [ ] Unit tests cover SNMP helpers and bandwidth math
 
-## Estimated Effort (WebSocket)
+## Estimates
 
-- Connection manager: 1 hour
-- Event broadcasting integration: 2 hours
-- Metrics streaming: 1 hour
-- Testing: 1 hour
-- **Total: ~5 hours**
+- SNMP table + polling: 8h
+- Influx write/query for bandwidth: 3h
+- API endpoint + tests: 3h
+- PyQt chart + wiring: 4h
+- Alerts integration: 2h
+- Buffer for polish: 2h
+- Total: ~22h
 
-## Next After This
+## Notes
 
-Once WebSocket streaming works, proceed to:
-
-1. **Phase 1F:** PyQt UI with device list and real-time updates
-2. **Phase 1G:** Notification system for alerts
-3. Implement `write_metric(measurement: str, tags: dict, fields: dict)`
-4. Use `influxdb_client.Point` to construct data points
-5. Handle connection errors gracefully
-
-**Example Code Pattern:**
-
-```python
-from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
-
-async def write_metric(measurement: str, tags: dict, fields: dict):
-    """Write metric to InfluxDB."""
-    async with InfluxDBClientAsync(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG) as client:
-        write_api = client.write_api()
-        point = Point(measurement).tag(**tags).field(**fields)
-        await write_api.write(bucket=INFLUX_BUCKET, record=point)
-```
-
-### Step 3: Monitoring Job (Priority: MEDIUM)
-
-**File:** `backend/app/scheduler/jobs.py`
-
-**Tasks:**
-
-1. Update `monitoring_tick()` to fetch all devices from SQLite
-2. For each device, call `monitoring.ping_device(ip)`
-3. Write metrics to InfluxDB via `influx.write_metric()`
-4. Update device status in SQLite (last_seen timestamp)
-5. Detect state transitions (up → down, down → up) and log
-
-### Step 4: Metrics API Endpoint (Priority: MEDIUM)
-
-**File:** `backend/app/api/routers/metrics.py`
-
-**Tasks:**
-
-1. Add `GET /api/metrics/{device_id}` to fetch metrics from InfluxDB
-2. Query last N minutes of latency/packet loss data
-3. Return time-series array for charting
-
-### Step 5: Testing (Priority: LOW)
-
-**File:** `backend/tests/test_monitoring.py` (new file)
-
-**Tasks:**
-
-1. Mock subprocess ping output for unit tests
-2. Test metric parsing (latency, packet loss)
-3. Test InfluxDB writer with in-memory mock
-4. Test monitoring job with fake device list
-
-## Success Criteria (Monitoring)
-
-- [ ] Monitoring job runs every 5-10 seconds and pings all devices
-- [ ] Metrics (latency, packet loss) stored in InfluxDB
-- [ ] `GET /api/metrics/{device_id}` returns time-series data
-- [ ] Device status (up/down) updated in SQLite
-- [ ] Logs show state transitions (device offline/online)
-- [ ] Unit tests pass
-
-## Estimated Effort
-
-- Ping monitoring service: 2-3 hours
-- InfluxDB writer: 2 hours
-- Monitoring job integration: 2 hours
-- Metrics API endpoint: 1-2 hours
-- Testing + debugging: 2 hours
-- **Total: ~10 hours**
-
-## Next After This (Monitoring)
-
-Once monitoring works, proceed to:
-
-1. **Phase 1E:** WebSocket streaming for real-time updates
-2. **Phase 1F:** PyQt UI with device list and metrics
-3. **Phase 1G:** Notification system for alerts
+- Keep SNMP v2c for now; consider v3 later
+- Use exponential backoff on SNMP timeouts
+- Limit interfaces polled (skip down/loopback)

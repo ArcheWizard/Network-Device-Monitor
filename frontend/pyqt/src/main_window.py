@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 import asyncio
 
-from PyQt6.QtCore import QThread, pyqtSignal, Qt
+from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtWidgets import (
     QMainWindow,
@@ -19,7 +19,10 @@ from PyQt6.QtWidgets import (
     QStatusBar,
 )
 
-from api_client import APIClient
+try:
+    from .api_client import APIClient  # type: ignore[attr-defined]
+except ImportError:
+    from api_client import APIClient  # type: ignore[no-redef]
 
 
 class FetchDevicesWorker(QThread):
@@ -175,7 +178,9 @@ class MainWindow(QMainWindow):
         worker = FetchDevicesWorker(self.base_url)
         worker.setParent(self)  # keep strong ref until finished
         worker.result.connect(self.populate_devices)
-        worker.error.connect(lambda e: self.status.showMessage(f"Fetch error: {e}", 5000))
+        worker.error.connect(
+            lambda e: self.status.showMessage(f"Fetch error: {e}", 5000)
+        )
         # Keep reference until finished
         worker.finished.connect(worker.deleteLater)
         worker.start()
@@ -185,8 +190,14 @@ class MainWindow(QMainWindow):
         self.status.showMessage("Triggering discovery scan…", 2000)
         worker = TriggerScanWorker(self.base_url)
         worker.setParent(self)  # keep strong ref until finished
-        worker.done.connect(lambda r: self.status.showMessage(f"Scan done: {r.get('count', 0)} devices", 5000))
-        worker.error.connect(lambda e: self.status.showMessage(f"Scan error: {e}", 5000))
+        worker.done.connect(
+            lambda r: self.status.showMessage(
+                f"Scan done: {r.get('count', 0)} devices", 5000
+            )
+        )
+        worker.error.connect(
+            lambda e: self.status.showMessage(f"Scan error: {e}", 5000)
+        )
         worker.finished.connect(worker.deleteLater)
         worker.start()
 
@@ -195,7 +206,9 @@ class MainWindow(QMainWindow):
             return
         self.stream_worker = EventStreamWorker(self.base_url)
         self.stream_worker.message.connect(self.on_event)
-        self.stream_worker.error.connect(lambda e: self.status.showMessage(f"WS error: {e}", 5000))
+        self.stream_worker.error.connect(
+            lambda e: self.status.showMessage(f"WS error: {e}", 5000)
+        )
         self.stream_worker.finished.connect(self._clear_stream_worker)
         self.stream_worker.start()
 
@@ -243,7 +256,9 @@ class MainWindow(QMainWindow):
         row = self._rows_by_id.get(dev_id)
         if row is None:
             # Create minimal row if unknown
-            self.upsert_device_row({"id": dev_id, "ip": msg.get("ip", ""), "status": "unknown"})
+            self.upsert_device_row(
+                {"id": dev_id, "ip": msg.get("ip", ""), "status": "unknown"}
+            )
             row = self._rows_by_id.get(dev_id)
         if row is None:
             return
@@ -254,8 +269,18 @@ class MainWindow(QMainWindow):
         elif mtype == "latency":
             ms = msg.get("ms") or msg.get("latency_avg")
             loss = msg.get("loss") or msg.get("packet_loss")
-            self.table.setItem(row, 6, QTableWidgetItem(f"{ms:.1f}" if isinstance(ms, (int, float)) else ""))
-            self.table.setItem(row, 7, QTableWidgetItem(f"{loss:.2f}" if isinstance(loss, (int, float)) else ""))
+            self.table.setItem(
+                row,
+                6,
+                QTableWidgetItem(f"{ms:.1f}" if isinstance(ms, (int, float)) else ""),
+            )
+            self.table.setItem(
+                row,
+                7,
+                QTableWidgetItem(
+                    f"{loss:.2f}" if isinstance(loss, (int, float)) else ""
+                ),
+            )
 
     # ----- lifecycle -----
     def closeEvent(self, event) -> None:  # type: ignore[override]
