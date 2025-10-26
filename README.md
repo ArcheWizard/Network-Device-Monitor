@@ -1,5 +1,13 @@
 # Network Device Mapper & Monitor
 
+![Backend CI](https://github.com/ArcheWizard/Network-Device-Monitor/workflows/Backend%20CI/badge.svg)
+![Frontend CI](https://github.com/ArcheWizard/Network-Device-Monitor/workflows/Frontend%20(PyQt)%20CI/badge.svg)
+![Lint](https://github.com/ArcheWizard/Network-Device-Monitor/workflows/Lint%20Markdown/badge.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115.2-009688.svg)
+![PyQt6](https://img.shields.io/badge/PyQt6-6.7.1-41CD52.svg)
+
 **Status:** ✅ **MVP Complete** - Milestone 1 finished! Discovery, Storage, Identification, Monitoring, WebSocket Streaming & PyQt UI all operational.
 
 Async Python backend + PyQt6 frontend to discover devices on local networks, identify type/manufacturer, and monitor health (latency, uptime, bandwidth, connectivity) with alerts and history.
@@ -17,6 +25,52 @@ Async Python backend + PyQt6 frontend to discover devices on local networks, ide
 - 🚧 Notifications: device offline/online, high latency thresholds (basic implementation, needs enhancement)
 
 **Legend:** ✅ Complete | 🚧 In Progress | ⏳ Planned
+
+## Screenshots
+
+### PyQt6 Desktop Interface
+
+![PyQt6 main window](docs/screenshots/Frontend_Normal.png)
+
+_Main window with live device table, vendor identification, and status._
+
+![PyQt6 discovery](docs/screenshots/Frontend_Discovering.png)
+
+_Discovery completed — statuses reflect up/down with live updates._
+
+![PyQt6 scan](docs/screenshots/Frontend_Scanning_Done.png)
+
+_Scan completed — all devices monitored with real-time metrics._
+
+> Note: If images do not render on GitHub, ensure the files exist at
+> docs/screenshots/Frontend_Normal.png and docs/screenshots/Frontend_Discovering.png
+> (you can rename your screenshots to match or update these links).
+
+**Key UI Features:**
+
+- **Device Table**: Live view of all discovered devices with IP, MAC, hostname, vendor, and status
+- **Real-time Updates**: WebSocket-powered instant updates when devices come online/offline
+- **Discovery Controls**: On-demand network scanning with configurable parameters
+- **Status Bar**: Connection status and live event notifications
+- **Metrics Display**: Current latency and packet loss for monitored devices
+
+### Backend API (Swagger UI)
+
+![API Swagger Docs](docs/screenshots/API_Normal.png)
+
+**Available Endpoints:**
+
+- `GET /api/health` - Health check
+- `GET /api/devices` - List all discovered devices
+- `POST /api/discovery/scan` - Trigger network scan
+- `GET /api/metrics/latency` - Query time-series latency data
+- `WS /ws/stream` - Real-time event streaming
+
+### InfluxDB Metrics Dashboard
+
+![InfluxDB Latency Dashboard](docs/screenshots/InfluxDB_Normal.png)
+
+_Time-series latency and packet loss metrics stored in InfluxDB._
 
 ## High-level Architecture
 
