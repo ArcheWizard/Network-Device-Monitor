@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   influxdb:
     image: influxdb:2.7
@@ -11,5 +13,47 @@ services:
       DOCKER_INFLUXDB_INIT_PASSWORD: admin12345
       DOCKER_INFLUXDB_INIT_ORG: local
       DOCKER_INFLUXDB_INIT_BUCKET: network_metrics
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    env_file:
+      - ../backend/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../backend:/app:delegated
+    restart: unless-stopped
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0 --port 8000 --reload --app-dir /app
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    env_file:
+      - ../backend/.env
+    volumes:
+      - ../frontend/pyqt:/app:delegated
+      - /tmp/.X11-unix:/tmp/.X11-unix   # X11 socket for GUI (Linux)
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      - QT_X11_NO_MITSHM=1
+    depends_on:
+      - backend
+    restart: unless-stopped
+    # Not exposing ports by default; run in foreground to show GUI:
+    # docker compose -f docker/docker-compose.yml up frontend
+
 volumes:
   influx-data:

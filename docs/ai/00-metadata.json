@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "project": {
+    "name": "Network-Device-Monitor",
+    "owner": "ArcheWizard",
+    "repository": "https://github.com/ArcheWizard/Network-Device-Monitor",
+    "version": "0.1.0",
+    "status": "MVP Complete (Milestone 1)",
+    "license": "MIT"
+  },
+  "technology": {
+    "language": "Python",
+    "python_version": "3.11+",
+    "framework": "FastAPI",
+    "frontend": "PyQt6",
+    "databases": ["SQLite", "InfluxDB"],
+    "key_libraries": [
+      "scapy",
+      "zeroconf",
+      "pysnmp",
+      "httpx",
+      "websockets",
+      "APScheduler"
+    ]
+  },
+  "structure": {
+    "root": ".",
+    "backend": "backend/",
+    "frontend": "frontend/pyqt/",
+    "docs": "docs/",
+    "tests": "backend/tests/",
+    "docker": "docker/"
+  },
+  "entrypoints": {
+    "backend_main": "backend/app/main.py",
+    "frontend_main": "frontend/pyqt/src/app.py",
+    "backend_cli": "backend/app/main.py"
+  },
+  "ports": {
+    "api": 8000,
+    "influxdb": 8086
+  },
+  "key_directories": {
+    "api_routers": "backend/app/api/routers/",
+    "models": "backend/app/models/",
+    "services": "backend/app/services/",
+    "storage": "backend/app/storage/",
+    "scheduler": "backend/app/scheduler/",
+    "utils": "backend/app/utils/"
+  }
+}

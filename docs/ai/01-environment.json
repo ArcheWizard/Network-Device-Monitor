@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Network Device Monitor Environment Configuration",
+  "type": "object",
+  "properties": {
+    "NETWORK_CIDR": {
+      "type": "string",
+      "default": "192.168.1.0/24",
+      "description": "Target network CIDR for discovery"
+    },
+    "INTERFACE": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null,
+      "description": "Network interface name (auto-detect if null)"
+    },
+    "SNMP_COMMUNITY": {
+      "type": "string",
+      "default": "public",
+      "description": "SNMP v2c community string"
+    },
+    "SNMP_PORT": {
+      "type": "integer",
+      "default": 161,
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "SNMP_TIMEOUT": {
+      "type": "number",
+      "default": 1.0,
+      "minimum": 0.1,
+      "maximum": 30.0
+    },
+    "INFLUX_URL": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri",
+      "description": "InfluxDB server URL"
+    },
+    "INFLUX_TOKEN": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "InfluxDB authentication token"
+    },
+    "INFLUX_ORG": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "InfluxDB organization"
+    },
+    "INFLUX_BUCKET": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "InfluxDB bucket name"
+    },
+    "ALERT_LATENCY_MS": {
+      "type": "number",
+      "default": 200.0,
+      "minimum": 0
+    },
+    "ALERT_PACKET_LOSS": {
+      "type": "number",
+      "default": 0.5,
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}

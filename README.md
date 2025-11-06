@@ -1,217 +1,328 @@
-# Network Device Mapper & Monitor
+# Network Device Monitor
 
-**Status:** ✅ **MVP Complete** - Milestone 1 finished! Discovery, Storage, Identification, Monitoring, WebSocket Streaming & PyQt UI all operational.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Backend CI](https://github.com/ArcheWizard/Network-Device-Monitor/workflows/Backend%20CI/badge.svg)](https://github.com/ArcheWizard/Network-Device-Monitor/actions)
 
-Async Python backend + PyQt6 frontend to discover devices on local networks, identify type/manufacturer, and monitor health (latency, uptime, bandwidth, connectivity) with alerts and history.
+A powerful network monitoring and device discovery tool built with Python, FastAPI, and PyQt6. Monitor your network devices in real-time, track metrics, and gain insights into your network topology.
 
-**Current Phase:** Milestone 1 Complete - Ready for Milestone 2 (SNMP & Advanced Metrics)
+## ✨ Features
 
-## Features
+### 🔍 Network Discovery
 
-- ✅ Network discovery: ARP (scapy), ICMP ping sweep, mDNS/Bonjour (zeroconf), WiFi fallback
-- ✅ Device identification: OUI lookup (IEEE database), SNMP v2c (sysName, sysDescr, etc.), DNS reverse lookup
-- ✅ Health monitoring: periodic ping latency + packet loss stored in InfluxDB
-- ✅ Real-time WebSocket streaming: device discovery, status changes, latency metrics
-- ✅ Data persistence: SQLite for inventory + InfluxDB for time-series metrics
-- ✅ PyQt6 desktop GUI with real-time updates, device table, and monitoring metrics
-- 🚧 Notifications: device offline/online, high latency thresholds (basic implementation, needs enhancement)
+- **Automated ARP Scanning** - Discover devices on your network using ARP
+- **Ping Sweep** - Fast parallel ping scanning with configurable concurrency
+- **mDNS/Zeroconf Discovery** - Detect services advertised via mDNS/Bonjour
+- **SNMP Identification** - Query device information via SNMPv2c
+- **Vendor Identification** - MAC address to vendor mapping using IEEE OUI database
+- **DNS Reverse Lookup** - Resolve hostnames for discovered devices
 
-**Legend:** ✅ Complete | 🚧 In Progress | ⏳ Planned
+### 📊 Monitoring & Metrics
 
-## High-level Architecture
+- **Real-time Device Monitoring** - Continuous health checks and metrics collection
+- **Latency Tracking** - Monitor network latency with min/avg/max measurements
+- **Packet Loss Detection** - Track packet loss percentages
+- **Time-series Storage** - Store metrics in InfluxDB for historical analysis
+- **Device Status Tracking** - Monitor device up/down status
 
-- **Backend** (FastAPI + asyncio)
-  - Services: discovery, identification, monitoring, notifications
-  - Scheduler: APScheduler for periodic scans and checks
-  - API: REST + WebSocket streaming updates
-  - Storage: SQLite (inventory) + InfluxDB (metrics)
-- **Frontend** (PyQt6)
-  - Real-time device list, status, metrics
-  - Network topology visualization (future)
+### 🖥️ User Interface
 
-See detailed docs:
+- **Desktop Application** - Native PyQt6 GUI for cross-platform use
+- **Real-time Updates** - WebSocket-based live device status updates
+- **Device Inventory** - View and manage discovered devices
+- **Metrics Visualization** - Display latency and packet loss data
 
-- 📋 [Current Status](docs/CURRENT_STATUS.md) - What's done and what's next
-- 🎯 [Next Steps](docs/NEXT_STEPS.md) - Detailed implementation plan for current phase
-- 🏗️ [Architecture](docs/architecture.md) - System design and data flow
-- 📡 [API Reference](docs/api.md) - REST and WebSocket endpoints
-- 💾 [Database Schema](docs/database.md) - SQLite and InfluxDB structure
-- 🛣️ [Roadmap](docs/roadmap.md) - Complete feature timeline
-- 🔧 [Development Guide](docs/DEVELOPMENT.md) - Setup, testing, debugging
-- 🚀 [Operations](docs/ops.md) - Running and deploying
-- 🔒 [Security](docs/security.md) - Security considerations
+### 🔧 Backend API
 
-## Quick Start
+- **RESTful API** - FastAPI-based REST endpoints for all operations
+- **WebSocket Streaming** - Real-time event streaming
+- **SQLite Inventory** - Persistent device storage
+- **InfluxDB Integration** - Time-series metrics storage
+- **Scheduled Tasks** - Automated discovery and monitoring jobs
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Python 3.11+
-- Docker + Docker Compose (for InfluxDB)
-- libpcap: `sudo apt-get install -y libpcap-dev python3-dev`
+- **Python 3.11+**
+- **Docker & Docker Compose** (for InfluxDB)
+- **Linux**: `libpcap-dev` and `python3-dev` packages
+- **macOS**: Xcode command line tools
+- **Windows**: WSL2 recommended
 
-### Setup
+### Installation
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/ArcheWizard/Network-Device-Monitor.git
+   cd Network-Device-Monitor
+   ```
+
+2. **Create virtual environment and install dependencies**
+
+   ```bash
+   python3.11 -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   pip install -r backend/requirements/dev.txt
+   ```
+
+3. **Configure environment**
+
+   ```bash
+   cp backend/.env.example backend/.env
+   # Edit backend/.env with your settings
+   ```
+
+4. **Grant network permissions (Linux only)**
+
+   ```bash
+   sudo setcap cap_net_raw,cap_net_admin=eip "$(readlink -f .venv/bin/python)"
+   ```
+
+5. **Start InfluxDB**
+
+   ```bash
+   docker compose -f docker/docker-compose.yml up -d influxdb
+   ```
+
+   Visit <http://localhost:8086> to complete InfluxDB setup and get your token.
+
+6. **Update `.env` with InfluxDB credentials**
+
+   ```bash
+   # Edit backend/.env
+   INFLUX_URL=http://localhost:8086
+   INFLUX_TOKEN=your-token-here
+   INFLUX_ORG=local
+   INFLUX_BUCKET=network_metrics
+   ```
+
+### Running the Application
+
+#### Backend (API Server)
 
 ```bash
-# Clone and create virtual environment
-git clone <your-repo-url> Network-Device-Monitor
-cd Network-Device-Monitor
-python3.11 -m venv .venv
-source .venv/bin/activate
+make dev
+# Or: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --app-dir backend
+```
 
-# Install dependencies
-pip install -r backend/requirements/dev.txt
+The API will be available at <http://localhost:8000>
 
-# Configure environment
-cp backend/.env.example backend/.env
+#### Frontend (PyQt GUI)
 
-# Grant raw socket capability (for scapy without sudo)
-sudo setcap cap_net_raw,cap_net_admin=eip "$(readlink -f .venv/bin/python)"
+```bash
+make run-frontend
+# Or: python frontend/pyqt/src/app.py
+```
 
-# Start InfluxDB
+#### Using Docker Compose (Full Stack)
+
+```bash
 docker compose -f docker/docker-compose.yml up -d
 ```
 
-### Run Backend
+## 📖 Documentation
 
-```bash
-# Option 1: Makefile
-make -C backend dev
+Comprehensive documentation is available in the `docs/` directory:
 
-# Option 2: Helper script
-./scripts/dev.sh
+### For Users & Developers
 
-# Access API docs at http://127.0.0.1:8000/docs
+- **[Quick Start Guide](docs/human/01-quick-start.md)** - Get up and running in 5 minutes
+- **[Installation Guide](docs/human/02-installation.md)** - Detailed installation instructions
+- **[Configuration Guide](docs/human/03-configuration.md)** - Environment variables and settings
+- **[Development Guide](docs/human/10-development.md)** - Development workflow and best practices
+- **[Architecture Overview](docs/human/11-architecture.md)** - System design and components
+- **[API Reference](docs/human/40-api-reference.md)** - REST API documentation
+
+### For AI/Automation
+
+- **[AI Documentation](docs/ai/)** - Machine-readable JSON schemas and specifications
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     PyQt6 Desktop UI                        │
+│              (Real-time WebSocket Updates)                  │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+                            │ HTTP/WebSocket
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   FastAPI Backend API                       │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐  │
+│  │   Discovery  │  │  Monitoring  │  │  Identification │  │
+│  │   Service    │  │   Service    │  │     Service     │  │
+│  └──────────────┘  └──────────────┘  └─────────────────┘  │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐  │
+│  │     SNMP     │  │  OUI Lookup  │  │  DNS Resolver   │  │
+│  │    Client    │  │   (Vendor)   │  │                 │  │
+│  └──────────────┘  └──────────────┘  └─────────────────┘  │
+└───────────┬────────────────────────────────┬───────────────┘
+            │                                │
+            ▼                                ▼
+┌───────────────────────┐      ┌───────────────────────────┐
+│   SQLite Database     │      │    InfluxDB (Time-Series) │
+│  (Device Inventory)   │      │     (Metrics Storage)     │
+└───────────────────────┘      └───────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Network Layer                          │
+│      ARP • ICMP • SNMP • mDNS/Zeroconf • DNS               │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Run PyQt Frontend
+### Key Components
+
+- **Backend API** - FastAPI application providing REST endpoints and WebSocket streaming
+- **Discovery Service** - Network scanning using ARP, ping, and mDNS
+- **Identification Service** - Device identification via SNMP, OUI lookup, and DNS
+- **Monitoring Service** - Health checks and metrics collection
+- **SQLite Repository** - Persistent device inventory storage
+- **InfluxDB Writer** - Time-series metrics storage and retrieval
+- **Scheduler** - APScheduler for periodic discovery and monitoring tasks
+- **PyQt6 Frontend** - Desktop application with real-time updates
+
+## 🧪 Testing
+
+### Run Backend Tests
 
 ```bash
-pip install -r frontend/pyqt/requirements.txt
-python frontend/pyqt/src/app.py
+make -C backend test
+# Or: pytest backend/tests/
 ```
 
-## Current Status
-
-**✅ Completed (Milestone 0 + Milestone 1 A–F):**
-
-- Project structure and scaffolding
-- FastAPI backend with health endpoint
-- **Network discovery service (ARP/ICMP/mDNS)** ✨
-- **SQLite storage for device inventory** ✨
-- **Discovery persistence and scheduling** ✨
-- **OUI lookup for vendor identification** ✨
-- **SNMP device queries (sysName, sysDescr, etc.)** ✨
-- **Ping monitoring and latency metrics** ✨
-- **InfluxDB metrics writer for time-series data** ✨
-- **WebSocket streaming for real-time updates** ✨
-  - Device discovery events
-  - Status change notifications (up/down)
-  - Live latency metrics streaming
-- PyQt6 frontend window shell
-- Auto-detect network interfaces utility
-- InfluxDB Docker setup
-- CI/CD workflows
-- Comprehensive documentation
-
-**⏳ Next Up (Milestone 2 — SNMP & Advanced Metrics):**
-
-- SNMP interface table (ifIndex/ifDescr/ifSpeed)
-- Bandwidth tracking via ifIn/OutOctets → bps
-- Metrics charts in PyQt (latency + bandwidth)
-- Improved alerts (thresholds via WS/log)
-
-See full [Roadmap](docs/roadmap.md) for future milestones.
-
-## Configuration
-
-Edit `backend/.env`:
+### Run Frontend Tests
 
 ```bash
-# Network scanning (leave empty for auto-detect)
-NETWORK_CIDR=
-INTERFACE=
-
-# SNMP credentials
-SNMP_COMMUNITY=public
-SNMP_PORT=161
-
-# InfluxDB connection
-INFLUX_URL=http://localhost:8086
-INFLUX_TOKEN=dev-token
-INFLUX_ORG=local
-INFLUX_BUCKET=network_metrics
-
-# Alert thresholds
-ALERT_LATENCY_MS=200
-ALERT_PACKET_LOSS=0.5
+cd frontend/pyqt
+pytest tests/
 ```
 
-## Development
-
-### Linting & Formatting
-
-This project uses `ruff` for linting and formatting.
-
-### Common Commands
+### Run All Tests with Coverage
 
 ```bash
-# Run tests
-make test
+pytest --cov=app --cov-report=html backend/tests/
+```
 
-# Lint code
-make lint
+### Code Quality
+
+```bash
+# Linting
+make -C backend lint
 
 # Type checking
-make typecheck
+make -C backend typecheck
 
-# View all available commands
-make help
-
-# Clean build artifacts
-make clean
+# Format code
+ruff format backend/
 ```
 
-See [Development Guide](docs/DEVELOPMENT.md) for detailed instructions.
+## 🔧 Configuration
 
-## Project Structure
+Configuration is managed through environment variables. Key settings include:
 
-```text
-Network-Device-Monitor/
-├── backend/
-│   ├── app/
-│   │   ├── api/routers/      # FastAPI endpoints
-│   │   ├── models/           # Pydantic models
-│   │   ├── services/         # Business logic
-│   │   ├── storage/          # Database repositories
-│   │   ├── scheduler/        # Background jobs
-│   │   └── utils/            # Helpers
-│   ├── requirements/         # Dependencies
-│   └── tests/               # Pytest tests
-├── frontend/pyqt/           # PyQt6 desktop app
-├── docs/                    # Documentation
-├── docker/                  # Docker Compose + Dockerfiles
-├── scripts/                 # Helper scripts
-└── .github/workflows/       # CI/CD
-```
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NETWORK_CIDR` | Network range to scan | `192.168.1.0/24` |
+| `INTERFACE` | Network interface to use | Auto-detect |
+| `SNMP_COMMUNITY` | SNMP community string | `public` |
+| `SNMP_TIMEOUT` | SNMP query timeout (seconds) | `1.0` |
+| `INFLUX_URL` | InfluxDB server URL | `http://localhost:8086` |
+| `INFLUX_TOKEN` | InfluxDB authentication token | - |
+| `INFLUX_ORG` | InfluxDB organization | `local` |
+| `INFLUX_BUCKET` | InfluxDB bucket name | `network_metrics` |
+| `ALERT_LATENCY_MS` | Latency threshold for alerts (ms) | `200.0` |
+| `ALERT_PACKET_LOSS` | Packet loss threshold for alerts | `0.5` |
 
-## Contributing
+See [Configuration Guide](docs/human/03-configuration.md) for complete details.
 
-This is currently a personal project in active development. Contributions welcome once MVP is complete.
+## 📋 API Endpoints
 
-## License
+### Device Management
 
-MIT License - See [LICENSE](LICENSE)
+- `GET /api/devices` - List all discovered devices
+- `GET /api/devices/{device_id}` - Get device details
+- `POST /api/discovery/scan` - Trigger network discovery scan
 
-## Roadmap Highlights
+### Metrics
 
-- **v0.1.0** (MVP) - Discovery, monitoring, basic UI
-- **v0.2.0** - SNMP metrics, bandwidth tracking, charts
-- **v0.3.0** - Network topology visualization
-- **v0.4.0** - Notifications, reporting, anomaly detection
-- **v1.0.0** - Production-ready with security hardening
+- `GET /api/metrics/latency` - Get latency metrics for a device
 
-See full [Roadmap](docs/roadmap.md) for details.
+### WebSocket
+
+- `WS /ws/stream` - Real-time device updates and metrics stream
+
+### Health Check
+
+- `GET /api/health` - API health status
+
+See [API Reference](docs/human/40-api-reference.md) for complete documentation.
+
+## 🛣️ Roadmap
+
+### Milestone 1: MVP - Discovery & Monitoring ✅ (COMPLETED)
+
+- [x] Network discovery (ARP, ping, mDNS)
+- [x] Device identification (SNMP, OUI, DNS)
+- [x] Basic monitoring (ping-based)
+- [x] SQLite inventory
+- [x] InfluxDB metrics storage
+- [x] REST API
+- [x] WebSocket streaming
+- [x] PyQt6 frontend
+
+### Milestone 2: Advanced Features (PLANNED)
+
+- [ ] Network topology visualization
+- [ ] SNMP monitoring (bandwidth, CPU, memory)
+- [ ] Alerting system (email, webhook)
+- [ ] Device grouping and tagging
+- [ ] Custom monitoring schedules
+- [ ] Historical metrics analysis
+
+### Milestone 3: Enterprise Features (FUTURE)
+
+- [ ] Multi-site support
+- [ ] Role-based access control
+- [ ] Advanced alerting rules
+- [ ] Integration with ticketing systems
+- [ ] Performance optimization
+- [ ] Web frontend
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+
+- Setting up development environment
+- Code style and quality standards
+- Testing requirements
+- Pull request process
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **Scapy** - Network packet manipulation
+- **FastAPI** - Modern Python web framework
+- **PyQt6** - Cross-platform GUI framework
+- **InfluxDB** - Time-series database
+- **IEEE OUI Database** - MAC address vendor lookup
+
+## 📞 Support
+
+- **Documentation**: [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/ArcheWizard/Network-Device-Monitor/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/ArcheWizard/Network-Device-Monitor/discussions)
+
+## 🔒 Security
+
+This tool requires elevated network permissions for packet capture and raw socket operations. See [Security Considerations](docs/human/03-configuration.md#security-settings) for best practices.
 
 ---
 
-**Next Implementation Phase:** [Milestone 2 — SNMP & Advanced Metrics](docs/NEXT_STEPS.md)
+**Built with ❤️ by [ArcheWizard](https://github.com/ArcheWizard)**

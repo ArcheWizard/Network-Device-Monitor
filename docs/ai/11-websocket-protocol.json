@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WebSocket Message Protocol",
+  "endpoint": "ws://localhost:8000/ws/stream",
+  "message_types": {
+    "hello": {
+      "direction": "server_to_client",
+      "sent_on": "connection_established",
+      "schema": {
+        "type": "object",
+        "required": [
+          "type",
+          "ts"
+        ],
+        "properties": {
+          "type": {
+            "const": "hello"
+          },
+          "ts": {
+            "type": "integer",
+            "description": "Unix timestamp"
+          }
+        }
+      },
+      "example": {
+        "type": "hello",
+        "ts": 1699000000
+      }
+    },
+    "device_discovered": {
+      "direction": "server_to_client",
+      "sent_on": "new_device_found_during_discovery",
+      "schema": {
+        "type": "object",
+        "required": [
+          "type",
+          "ts",
+          "device"
+        ],
+        "properties": {
+          "type": {
+            "const": "device_discovered"
+          },
+          "ts": {
+            "type": "integer"
+          },
+          "device": {
+            "$ref": "#/definitions/Device"
+          }
+        }
+      }
+    },
+    "device_up": {
+      "direction": "server_to_client",
+      "sent_on": "device_status_changes_to_up",
+      "schema": {
+        "type": "object",
+        "required": [
+          "type",
+          "ts",
+          "device_id"
+        ],
+        "properties": {
+          "type": {
+            "const": "device_up"
+          },
+          "ts": {
+            "type": "integer"
+          },
+          "device_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "device_down": {
+      "direction": "server_to_client",
+      "sent_on": "device_status_changes_to_down",
+      "schema": {
+        "type": "object",
+        "required": [
+          "type",
+          "ts",
+          "device_id"
+        ],
+        "properties": {
+          "type": {
+            "const": "device_down"
+          },
+          "ts": {
+            "type": "integer"
+          },
+          "device_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "latency": {
+      "direction": "server_to_client",
+      "sent_on": "monitoring_tick_completes_ping",
+      "schema": {
+        "type": "object",
+        "required": [
+          "type",
+          "ts",
+          "device_id",
+          "ms",
+          "loss"
+        ],
+        "properties": {
+          "type": {
+            "const": "latency"
+          },
+          "ts": {
+            "type": "integer"
+          },
+          "device_id": {
+            "type": "string"
+          },
+          "ms": {
+            "type": "number",
+            "description": "Latency in milliseconds"
+          },
+          "loss": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Packet loss ratio"
+          }
+        }
+      }
+    }
+  }
+}

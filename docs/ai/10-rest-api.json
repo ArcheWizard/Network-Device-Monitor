@@ -1,0 +1,406 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Network Device Monitor API",
+    "description": "REST API for network device discovery, monitoring, and metrics collection",
+    "version": "0.1.0",
+    "contact": {
+      "name": "ArcheWizard",
+      "url": "https://github.com/ArcheWizard/Network-Device-Monitor"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Check API server health status",
+        "operationId": "healthCheck",
+        "tags": ["Health"],
+        "responses": {
+          "200": {
+            "description": "Server is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/devices": {
+      "get": {
+        "summary": "List all devices",
+        "description": "Get list of all discovered network devices",
+        "operationId": "listDevices",
+        "tags": ["Devices"],
+        "responses": {
+          "200": {
+            "description": "List of devices",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Device"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/devices/{device_id}": {
+      "get": {
+        "summary": "Get device details",
+        "description": "Get detailed information about a specific device",
+        "operationId": "getDevice",
+        "tags": ["Devices"],
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Device identifier (MAC address or IP)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Device"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/discovery/scan": {
+      "post": {
+        "summary": "Trigger discovery scan",
+        "description": "Initiate network discovery scan with optional parameters",
+        "operationId": "discoveryScan",
+        "tags": ["Discovery"],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscoveryScanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scan completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryScanResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metrics/latency": {
+      "get": {
+        "summary": "Get latency metrics",
+        "description": "Retrieve latency metrics for a specific device",
+        "operationId": "getLatencyMetrics",
+        "tags": ["Metrics"],
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Device identifier"
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "-1h"
+            },
+            "description": "Start time (InfluxDB duration format)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100
+            },
+            "description": "Maximum number of points to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latency metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LatencyPoint"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Device": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable device identifier (MAC or MAC+IP)",
+            "example": "aa:bb:cc:dd:ee:ff"
+          },
+          "ip": {
+            "type": "string",
+            "nullable": true,
+            "description": "IPv4 address",
+            "example": "192.168.1.100"
+          },
+          "mac": {
+            "type": "string",
+            "nullable": true,
+            "description": "MAC address",
+            "example": "aa:bb:cc:dd:ee:ff"
+          },
+          "hostname": {
+            "type": "string",
+            "nullable": true,
+            "description": "Device hostname",
+            "example": "router.local"
+          },
+          "vendor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Device vendor from OUI lookup",
+            "example": "Cisco Systems"
+          },
+          "device_type": {
+            "type": "string",
+            "nullable": true,
+            "description": "Device type classification",
+            "example": "router"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["up", "down", "unknown"],
+            "default": "unknown",
+            "description": "Current device status"
+          },
+          "first_seen": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Unix timestamp of first discovery",
+            "example": 1699000000
+          },
+          "last_seen": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Unix timestamp of last seen",
+            "example": 1699001000
+          },
+          "tags": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Additional metadata tags"
+          }
+        }
+      },
+      "DiscoveryScanRequest": {
+        "type": "object",
+        "properties": {
+          "cidr": {
+            "type": "string",
+            "nullable": true,
+            "description": "Target network CIDR",
+            "example": "192.168.1.0/24"
+          },
+          "interface": {
+            "type": "string",
+            "nullable": true,
+            "description": "Network interface name",
+            "example": "eth0"
+          },
+          "arp_timeout": {
+            "type": "number",
+            "nullable": true,
+            "description": "ARP scan timeout in seconds",
+            "example": 3.0
+          },
+          "ping_timeout": {
+            "type": "number",
+            "nullable": true,
+            "description": "Ping sweep timeout in seconds",
+            "example": 1.0
+          },
+          "persist": {
+            "type": "boolean",
+            "default": true,
+            "description": "Persist discovered devices to database"
+          },
+          "identify": {
+            "type": "boolean",
+            "default": true,
+            "description": "Identify devices via OUI and SNMP"
+          }
+        }
+      },
+      "DiscoveryScanResponse": {
+        "type": "object",
+        "required": ["count", "devices"],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "Number of devices discovered",
+            "example": 5
+          },
+          "devices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ip": {
+                  "type": "string",
+                  "example": "192.168.1.100"
+                },
+                "mac": {
+                  "type": "string",
+                  "example": "aa:bb:cc:dd:ee:ff"
+                },
+                "hostname": {
+                  "type": "string",
+                  "example": "device.local"
+                },
+                "vendor": {
+                  "type": "string",
+                  "example": "Apple Inc"
+                },
+                "source": {
+                  "type": "string",
+                  "example": "arp"
+                }
+              }
+            }
+          },
+          "persisted": {
+            "type": "boolean",
+            "description": "Whether devices were persisted to database"
+          },
+          "identified": {
+            "type": "boolean",
+            "description": "Whether devices were identified"
+          }
+        }
+      },
+      "LatencyPoint": {
+        "type": "object",
+        "required": ["ts", "ms", "loss"],
+        "properties": {
+          "ts": {
+            "type": "integer",
+            "description": "Unix timestamp",
+            "example": 1699000000
+          },
+          "ms": {
+            "type": "number",
+            "description": "Latency in milliseconds",
+            "example": 12.4
+          },
+          "loss": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Packet loss ratio (0.0 to 1.0)",
+            "example": 0.0
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["detail"],
+        "properties": {
+          "detail": {
+            "type": "string",
+            "description": "Error message",
+            "example": "Device not found"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "API health check"
+    },
+    {
+      "name": "Devices",
+      "description": "Device inventory management"
+    },
+    {
+      "name": "Discovery",
+      "description": "Network discovery operations"
+    },
+    {
+      "name": "Metrics",
+      "description": "Monitoring metrics and time-series data"
+    }
+  ]
+}

@@ -1,0 +1,173 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Database Schemas",
+  "description": "SQLite and InfluxDB schemas for Network Device Monitor",
+  "sqlite": {
+    "database": "devices.db",
+    "location": "backend/data/devices.db",
+    "tables": {
+      "devices": {
+        "description": "Device inventory storage",
+        "columns": {
+          "id": {
+            "type": "TEXT",
+            "constraints": ["PRIMARY KEY"],
+            "description": "Stable device identifier (MAC or IP)"
+          },
+          "ip": {
+            "type": "TEXT",
+            "constraints": ["NULLABLE"],
+            "description": "IPv4 address"
+          },
+          "mac": {
+            "type": "TEXT",
+            "constraints": ["NULLABLE"],
+            "description": "MAC address"
+          },
+          "hostname": {
+            "type": "TEXT",
+            "constraints": ["NULLABLE"],
+            "description": "Device hostname"
+          },
+          "vendor": {
+            "type": "TEXT",
+            "constraints": ["NULLABLE"],
+            "description": "Device vendor from OUI lookup"
+          },
+          "device_type": {
+            "type": "TEXT",
+            "constraints": ["NULLABLE"],
+            "description": "Device type classification"
+          },
+          "status": {
+            "type": "TEXT",
+            "constraints": ["NULLABLE"],
+            "description": "Current device status (up, down, unknown)"
+          },
+          "first_seen": {
+            "type": "INTEGER",
+            "constraints": ["NULLABLE"],
+            "description": "Unix timestamp of first discovery"
+          },
+          "last_seen": {
+            "type": "INTEGER",
+            "constraints": ["NULLABLE"],
+            "description": "Unix timestamp of last seen"
+          },
+          "tags": {
+            "type": "TEXT",
+            "constraints": ["NULLABLE"],
+            "description": "JSON-encoded metadata tags"
+          }
+        },
+        "indexes": [
+          {
+            "name": "idx_devices_ip",
+            "columns": ["ip"],
+            "unique": false
+          },
+          {
+            "name": "idx_devices_mac",
+            "columns": ["mac"],
+            "unique": false
+          }
+        ],
+        "create_statement": "CREATE TABLE IF NOT EXISTS devices (\n  id TEXT PRIMARY KEY,\n  ip TEXT,\n  mac TEXT,\n  hostname TEXT,\n  vendor TEXT,\n  device_type TEXT,\n  status TEXT,\n  first_seen INTEGER,\n  last_seen INTEGER,\n  tags TEXT\n);"
+      }
+    },
+    "example_queries": {
+      "insert_device": "INSERT INTO devices(id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "upsert_device": "INSERT INTO devices(id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET ip=COALESCE(excluded.ip, devices.ip), mac=COALESCE(excluded.mac, devices.mac), hostname=COALESCE(excluded.hostname, devices.hostname), vendor=COALESCE(excluded.vendor, devices.vendor), device_type=COALESCE(excluded.device_type, devices.device_type), status=COALESCE(excluded.status, devices.status), first_seen=COALESCE(devices.first_seen, excluded.first_seen), last_seen=COALESCE(excluded.last_seen, devices.last_seen), tags=COALESCE(excluded.tags, devices.tags)",
+      "list_devices": "SELECT id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, tags FROM devices",
+      "get_device": "SELECT id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, tags FROM devices WHERE id=?",
+      "delete_device": "DELETE FROM devices WHERE id=?"
+    }
+  },
+  "influxdb": {
+    "version": "2.x",
+    "organization": "local",
+    "bucket": "network_metrics",
+    "measurements": {
+      "latency": {
+        "description": "Network latency measurements",
+        "tags": {
+          "device_id": {
+            "type": "string",
+            "description": "Device identifier (MAC or IP)"
+          },
+          "ip": {
+            "type": "string",
+            "description": "Device IP address"
+          }
+        },
+        "fields": {
+          "ms": {
+            "type": "float",
+            "description": "Latency in milliseconds"
+          },
+          "loss": {
+            "type": "float",
+            "description": "Packet loss ratio (0.0 to 1.0)"
+          },
+          "min_ms": {
+            "type": "float",
+            "description": "Minimum latency in milliseconds"
+          },
+          "max_ms": {
+            "type": "float",
+            "description": "Maximum latency in milliseconds"
+          }
+        },
+        "example_point": {
+          "measurement": "latency",
+          "tags": {
+            "device_id": "192.168.1.1",
+            "ip": "192.168.1.1"
+          },
+          "fields": {
+            "ms": 12.4,
+            "loss": 0.0,
+            "min_ms": 10.2,
+            "max_ms": 15.8
+          },
+          "timestamp": 1699000000
+        }
+      },
+      "device_status": {
+        "description": "Device up/down status changes",
+        "tags": {
+          "device_id": {
+            "type": "string",
+            "description": "Device identifier"
+          },
+          "ip": {
+            "type": "string",
+            "description": "Device IP address"
+          }
+        },
+        "fields": {
+          "status": {
+            "type": "string",
+            "description": "Device status (up, down)"
+          }
+        },
+        "example_point": {
+          "measurement": "device_status",
+          "tags": {
+            "device_id": "192.168.1.1",
+            "ip": "192.168.1.1"
+          },
+          "fields": {
+            "status": "up"
+          },
+          "timestamp": 1699000000
+        }
+      }
+    },
+    "example_queries": {
+      "recent_latency": "from(bucket: \"network_metrics\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"latency\")\n  |> filter(fn: (r) => r[\"device_id\"] == \"192.168.1.1\")\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 100)",
+      "average_latency": "from(bucket: \"network_metrics\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"latency\")\n  |> filter(fn: (r) => r[\"_field\"] == \"ms\")\n  |> group(columns: [\"device_id\"])\n  |> mean()",
+      "device_uptime": "from(bucket: \"network_metrics\")\n  |> range(start: -7d)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"device_status\")\n  |> filter(fn: (r) => r[\"_field\"] == \"status\")\n  |> filter(fn: (r) => r[\"device_id\"] == \"192.168.1.1\")"
+    }
+  }
+}

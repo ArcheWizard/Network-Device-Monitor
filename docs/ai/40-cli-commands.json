@@ -1,0 +1,261 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CLI Commands Reference",
+  "description": "Command-line interface commands and make targets for Network Device Monitor",
+  "make_targets": {
+    "help": {
+      "command": "make help",
+      "description": "Display available make commands",
+      "example": "make help"
+    },
+    "setup": {
+      "command": "make setup",
+      "description": "Install backend + frontend development dependencies",
+      "example": "make setup"
+    },
+    "venv": {
+      "command": "make venv",
+      "description": "Create virtual environment and install backend dependencies",
+      "example": "make venv"
+    },
+    "dev": {
+      "command": "make dev",
+      "description": "Run backend API server in development mode with hot reload",
+      "example": "make dev"
+    },
+    "dev-with-influx": {
+      "command": "make dev-with-influx",
+      "description": "Start InfluxDB (Docker) then run backend dev server",
+      "example": "make dev-with-influx"
+    },
+    "run-frontend": {
+      "command": "make run-frontend",
+      "description": "Run PyQt6 desktop frontend application",
+      "example": "make run-frontend"
+    },
+    "run-backend": {
+      "command": "make run-backend",
+      "description": "Run backend server using convenience script",
+      "example": "make run-backend"
+    },
+    "test": {
+      "command": "make test",
+      "description": "Run backend test suite",
+      "example": "make test"
+    },
+    "test-backend": {
+      "command": "make test-backend",
+      "description": "Run backend tests (alias for 'make test')",
+      "example": "make test-backend"
+    },
+    "test-frontend": {
+      "command": "make test-frontend",
+      "description": "Run frontend tests (requires display/pytest-qt)",
+      "example": "make test-frontend"
+    },
+    "lint": {
+      "command": "make lint",
+      "description": "Run ruff linter on backend code",
+      "example": "make lint"
+    },
+    "typecheck": {
+      "command": "make typecheck",
+      "description": "Run mypy type checker on backend code",
+      "example": "make typecheck"
+    },
+    "clean": {
+      "command": "make clean",
+      "description": "Clean build artifacts, __pycache__, .pytest_cache, etc.",
+      "example": "make clean"
+    },
+    "docker-up": {
+      "command": "make docker-up",
+      "description": "Start Docker Compose services (InfluxDB, etc.)",
+      "example": "make docker-up"
+    },
+    "docker-down": {
+      "command": "make docker-down",
+      "description": "Stop and remove Docker Compose services",
+      "example": "make docker-down"
+    },
+    "seed-oui": {
+      "command": "make seed-oui",
+      "description": "Download and cache IEEE OUI database for vendor lookup",
+      "example": "make seed-oui"
+    },
+    "grant-scapy-cap": {
+      "command": "make grant-scapy-cap",
+      "description": "Grant CAP_NET_RAW/ADMIN capabilities to Python (Linux only, requires sudo)",
+      "example": "make grant-scapy-cap"
+    }
+  },
+  "uvicorn_commands": {
+    "dev_server": {
+      "command": "uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --app-dir backend",
+      "description": "Start FastAPI development server with hot reload",
+      "working_dir": "project_root",
+      "options": {
+        "--reload": "Enable auto-reload on code changes",
+        "--host": "Bind host (0.0.0.0 for all interfaces)",
+        "--port": "Server port",
+        "--app-dir": "Application directory"
+      }
+    },
+    "prod_server": {
+      "command": "uvicorn app.main:app --host 0.0.0.0 --port 8000 --app-dir backend --workers 4",
+      "description": "Start FastAPI production server with multiple workers",
+      "working_dir": "project_root",
+      "options": {
+        "--workers": "Number of worker processes"
+      }
+    }
+  },
+  "docker_commands": {
+    "compose_up": {
+      "command": "docker compose -f docker/docker-compose.yml up -d",
+      "description": "Start all services in detached mode",
+      "services": ["backend", "frontend", "influxdb"]
+    },
+    "compose_up_influx": {
+      "command": "docker compose -f docker/docker-compose.yml up -d influxdb",
+      "description": "Start only InfluxDB service",
+      "services": ["influxdb"]
+    },
+    "compose_down": {
+      "command": "docker compose -f docker/docker-compose.yml down -v",
+      "description": "Stop and remove all services and volumes"
+    },
+    "compose_logs": {
+      "command": "docker compose -f docker/docker-compose.yml logs -f",
+      "description": "Follow logs from all services",
+      "options": {
+        "-f": "Follow log output",
+        "SERVICE": "Specify service name to view specific logs"
+      }
+    },
+    "compose_build": {
+      "command": "docker compose -f docker/docker-compose.yml build",
+      "description": "Build Docker images for all services"
+    },
+    "compose_ps": {
+      "command": "docker compose -f docker/docker-compose.yml ps",
+      "description": "List running services"
+    }
+  },
+  "python_commands": {
+    "run_backend": {
+      "command": "python -m uvicorn app.main:app --reload --app-dir backend",
+      "description": "Run backend server (from project root with venv activated)",
+      "working_dir": "project_root"
+    },
+    "run_frontend": {
+      "command": "python frontend/pyqt/src/app.py",
+      "description": "Run PyQt6 frontend application",
+      "working_dir": "project_root"
+    },
+    "run_tests": {
+      "command": "pytest backend/tests/",
+      "description": "Run all backend tests",
+      "working_dir": "project_root"
+    },
+    "run_tests_verbose": {
+      "command": "pytest -v backend/tests/",
+      "description": "Run tests with verbose output"
+    },
+    "run_tests_coverage": {
+      "command": "pytest --cov=app --cov-report=html backend/tests/",
+      "description": "Run tests with coverage report",
+      "output": "htmlcov/index.html"
+    },
+    "format_code": {
+      "command": "ruff format backend/",
+      "description": "Format backend code with ruff"
+    },
+    "lint_fix": {
+      "command": "ruff check --fix backend/",
+      "description": "Run ruff linter and auto-fix issues"
+    }
+  },
+  "script_commands": {
+    "dev_sh": {
+      "command": "./scripts/dev.sh",
+      "description": "Development convenience script (starts backend)",
+      "working_dir": "project_root"
+    },
+    "run_backend_sh": {
+      "command": "./scripts/run_backend.sh",
+      "description": "Backend startup script",
+      "working_dir": "project_root"
+    },
+    "run_frontend_pyqt_sh": {
+      "command": "./scripts/run_frontend_pyqt.sh",
+      "description": "Frontend startup script",
+      "working_dir": "project_root"
+    },
+    "seed_oui_sh": {
+      "command": "./scripts/seed_oui.sh",
+      "description": "Download and cache OUI database",
+      "working_dir": "project_root"
+    }
+  },
+  "common_workflows": {
+    "initial_setup": {
+      "description": "Complete project setup from scratch",
+      "steps": [
+        "git clone https://github.com/ArcheWizard/Network-Device-Monitor.git",
+        "cd Network-Device-Monitor",
+        "make setup",
+        "make seed-oui",
+        "make grant-scapy-cap  # Linux only, requires sudo",
+        "cp backend/.env.example backend/.env",
+        "# Edit backend/.env with your settings",
+        "make docker-up",
+        "# Visit http://localhost:8086 to setup InfluxDB and get token",
+        "# Add INFLUX_TOKEN to backend/.env",
+        "make dev"
+      ]
+    },
+    "daily_development": {
+      "description": "Start development environment",
+      "steps": [
+        "cd Network-Device-Monitor",
+        "source .venv/bin/activate",
+        "make dev  # In terminal 1",
+        "make run-frontend  # In terminal 2"
+      ]
+    },
+    "run_tests": {
+      "description": "Run full test suite",
+      "steps": [
+        "make test",
+        "make test-frontend",
+        "make lint",
+        "make typecheck"
+      ]
+    },
+    "production_deployment": {
+      "description": "Deploy with Docker Compose",
+      "steps": [
+        "git clone https://github.com/ArcheWizard/Network-Device-Monitor.git",
+        "cd Network-Device-Monitor",
+        "cp backend/.env.example backend/.env",
+        "# Edit backend/.env for production",
+        "docker compose -f docker/docker-compose.yml build",
+        "docker compose -f docker/docker-compose.yml up -d"
+      ]
+    }
+  },
+  "environment_variables": {
+    "NETWORK_CIDR": "Target network CIDR for discovery",
+    "INTERFACE": "Network interface name (auto-detect if unset)",
+    "SNMP_COMMUNITY": "SNMP v2c community string",
+    "SNMP_PORT": "SNMP port (default: 161)",
+    "SNMP_TIMEOUT": "SNMP query timeout in seconds",
+    "INFLUX_URL": "InfluxDB server URL",
+    "INFLUX_TOKEN": "InfluxDB authentication token",
+    "INFLUX_ORG": "InfluxDB organization",
+    "INFLUX_BUCKET": "InfluxDB bucket name",
+    "ALERT_LATENCY_MS": "Latency threshold for alerts (ms)",
+    "ALERT_PACKET_LOSS": "Packet loss threshold for alerts (0.0-1.0)"
+  }
+}

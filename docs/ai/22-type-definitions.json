@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Type Definitions",
+  "description": "TypeScript-style type definitions for API data structures",
+  "types": {
+    "Device": {
+      "description": "Network device with inventory information",
+      "typescript": "interface Device {\n  id: string;\n  ip: string | null;\n  mac: string | null;\n  hostname: string | null;\n  vendor: string | null;\n  device_type: string | null;\n  status: 'up' | 'down' | 'unknown';\n  first_seen: number | null;\n  last_seen: number | null;\n  tags: Record<string, string>;\n}",
+      "python": "from typing import Optional, Literal, Dict\n\nclass Device(TypedDict, total=False):\n    id: str\n    ip: Optional[str]\n    mac: Optional[str]\n    hostname: Optional[str]\n    vendor: Optional[str]\n    device_type: Optional[str]\n    status: Literal['up', 'down', 'unknown']\n    first_seen: Optional[int]\n    last_seen: Optional[int]\n    tags: Dict[str, str]"
+    },
+    "LatencyPoint": {
+      "description": "Latency measurement data point",
+      "typescript": "interface LatencyPoint {\n  ts: number;\n  ms: number;\n  loss: number;\n}",
+      "python": "from typing import TypedDict\n\nclass LatencyPoint(TypedDict):\n    ts: int\n    ms: float\n    loss: float"
+    },
+    "DiscoveryScanRequest": {
+      "description": "Request parameters for discovery scan",
+      "typescript": "interface DiscoveryScanRequest {\n  cidr?: string | null;\n  interface?: string | null;\n  arp_timeout?: number | null;\n  ping_timeout?: number | null;\n  persist?: boolean;\n  identify?: boolean;\n}",
+      "python": "from typing import Optional, TypedDict\n\nclass DiscoveryScanRequest(TypedDict, total=False):\n    cidr: Optional[str]\n    interface: Optional[str]\n    arp_timeout: Optional[float]\n    ping_timeout: Optional[float]\n    persist: bool\n    identify: bool"
+    },
+    "DiscoveryScanResponse": {
+      "description": "Response from discovery scan operation",
+      "typescript": "interface DiscoveryScanResponse {\n  count: number;\n  devices: Array<{\n    ip?: string;\n    mac?: string;\n    hostname?: string;\n    vendor?: string;\n    source?: string;\n  }>;\n  persisted: boolean;\n  identified: boolean;\n}",
+      "python": "from typing import TypedDict, List, Optional\n\nclass DiscoveredDevice(TypedDict, total=False):\n    ip: Optional[str]\n    mac: Optional[str]\n    hostname: Optional[str]\n    vendor: Optional[str]\n    source: Optional[str]\n\nclass DiscoveryScanResponse(TypedDict):\n    count: int\n    devices: List[DiscoveredDevice]\n    persisted: bool\n    identified: bool"
+    },
+    "WebSocketMessage": {
+      "description": "WebSocket message types",
+      "typescript": "type WebSocketMessage =\n  | { type: 'hello'; ts: number }\n  | { type: 'device_discovered'; ts: number; device: Device }\n  | { type: 'device_up'; ts: number; device_id: string }\n  | { type: 'device_down'; ts: number; device_id: string }\n  | { type: 'latency'; ts: number; device_id: string; ms: number; loss: number };",
+      "python": "from typing import Union, Literal, TypedDict\n\nclass HelloMessage(TypedDict):\n    type: Literal['hello']\n    ts: int\n\nclass DeviceDiscoveredMessage(TypedDict):\n    type: Literal['device_discovered']\n    ts: int\n    device: Device\n\nclass DeviceUpMessage(TypedDict):\n    type: Literal['device_up']\n    ts: int\n    device_id: str\n\nclass DeviceDownMessage(TypedDict):\n    type: Literal['device_down']\n    ts: int\n    device_id: str\n\nclass LatencyMessage(TypedDict):\n    type: Literal['latency']\n    ts: int\n    device_id: str\n    ms: float\n    loss: float\n\nWebSocketMessage = Union[\n    HelloMessage,\n    DeviceDiscoveredMessage,\n    DeviceUpMessage,\n    DeviceDownMessage,\n    LatencyMessage\n]"
+    },
+    "PingResult": {
+      "description": "Result from ping monitoring operation",
+      "typescript": "interface PingResult {\n  ip: string;\n  status: 'up' | 'down' | 'error';\n  latency_avg: number | null;\n  latency_min: number | null;\n  latency_max: number | null;\n  packet_loss: number;\n}",
+      "python": "from typing import Optional, Literal, TypedDict\n\nclass PingResult(TypedDict):\n    ip: str\n    status: Literal['up', 'down', 'error']\n    latency_avg: Optional[float]\n    latency_min: Optional[float]\n    latency_max: Optional[float]\n    packet_loss: float"
+    },
+    "SNMPIdentification": {
+      "description": "SNMP device identification data",
+      "typescript": "interface SNMPIdentification {\n  hostname: string | null;\n  description: string | null;\n  uptime: string | null;\n  contact: string | null;\n  location: string | null;\n  object_id: string | null;\n}",
+      "python": "from typing import Optional, TypedDict\n\nclass SNMPIdentification(TypedDict, total=False):\n    hostname: Optional[str]\n    description: Optional[str]\n    uptime: Optional[str]\n    contact: Optional[str]\n    location: Optional[str]\n    object_id: Optional[str]"
+    }
+  },
+  "enums": {
+    "DeviceStatus": {
+      "values": ["up", "down", "unknown"],
+      "description": "Device operational status"
+    },
+    "DiscoverySource": {
+      "values": ["arp", "icmp", "mdns", "snmp"],
+      "description": "Method used to discover device"
+    }
+  }
+}

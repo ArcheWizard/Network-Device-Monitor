@@ -1,0 +1,212 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pydantic Models",
+  "description": "Python Pydantic model definitions for type validation",
+  "models": {
+    "Device": {
+      "module": "app.models.device",
+      "description": "Network device model with inventory information",
+      "fields": {
+        "id": {
+          "type": "str",
+          "required": true,
+          "description": "Stable device identifier (MAC or IP)"
+        },
+        "ip": {
+          "type": "Optional[str]",
+          "default": null,
+          "description": "IPv4 address"
+        },
+        "mac": {
+          "type": "Optional[str]",
+          "default": null,
+          "description": "MAC address"
+        },
+        "hostname": {
+          "type": "Optional[str]",
+          "default": null,
+          "description": "Device hostname"
+        },
+        "vendor": {
+          "type": "Optional[str]",
+          "default": null,
+          "description": "Device vendor from OUI lookup"
+        },
+        "device_type": {
+          "type": "Optional[str]",
+          "default": null,
+          "description": "Device type classification"
+        },
+        "status": {
+          "type": "Optional[Literal['up', 'down', 'unknown']]",
+          "default": "unknown",
+          "description": "Current device status"
+        },
+        "first_seen": {
+          "type": "Optional[int]",
+          "default": null,
+          "description": "Unix timestamp of first discovery"
+        },
+        "last_seen": {
+          "type": "Optional[int]",
+          "default": null,
+          "description": "Unix timestamp of last seen"
+        },
+        "tags": {
+          "type": "dict[str, str]",
+          "default": {},
+          "description": "Additional metadata tags"
+        }
+      },
+      "example": {
+        "id": "aa:bb:cc:dd:ee:ff",
+        "ip": "192.168.1.1",
+        "mac": "aa:bb:cc:dd:ee:ff",
+        "hostname": "router.local",
+        "vendor": "Cisco Systems",
+        "device_type": null,
+        "status": "up",
+        "first_seen": 1699000000,
+        "last_seen": 1699001000,
+        "tags": {
+          "source": "arp"
+        }
+      },
+      "source_code": "from pydantic import BaseModel, Field\nfrom typing import Optional, Literal\n\nclass Device(BaseModel):\n    id: str\n    ip: Optional[str] = None\n    mac: Optional[str] = None\n    hostname: Optional[str] = None\n    vendor: Optional[str] = None\n    device_type: Optional[str] = None\n    status: Optional[Literal['up', 'down', 'unknown']] = 'unknown'\n    first_seen: Optional[int] = Field(default=None, description='unix ts')\n    last_seen: Optional[int] = Field(default=None, description='unix ts')\n    tags: dict[str, str] = {}"
+    },
+    "LatencyPoint": {
+      "module": "app.models.metrics",
+      "description": "Latency measurement data point",
+      "fields": {
+        "ts": {
+          "type": "int",
+          "required": true,
+          "description": "Unix timestamp"
+        },
+        "ms": {
+          "type": "float",
+          "required": true,
+          "description": "Latency in milliseconds"
+        },
+        "loss": {
+          "type": "float",
+          "required": true,
+          "description": "Packet loss ratio (0.0 to 1.0)"
+        }
+      },
+      "example": {
+        "ts": 1699000000,
+        "ms": 12.4,
+        "loss": 0.0
+      },
+      "source_code": "from pydantic import BaseModel\n\nclass LatencyPoint(BaseModel):\n    ts: int\n    ms: float\n    loss: float"
+    },
+    "DiscoveryScanRequest": {
+      "module": "app.api.routers.devices",
+      "description": "Request parameters for discovery scan endpoint",
+      "fields": {
+        "cidr": {
+          "type": "Optional[str]",
+          "default": null,
+          "description": "Target network CIDR"
+        },
+        "interface": {
+          "type": "Optional[str]",
+          "default": null,
+          "description": "Network interface name"
+        },
+        "arp_timeout": {
+          "type": "Optional[float]",
+          "default": null,
+          "description": "ARP scan timeout in seconds"
+        },
+        "ping_timeout": {
+          "type": "Optional[float]",
+          "default": null,
+          "description": "Ping sweep timeout in seconds"
+        },
+        "persist": {
+          "type": "Optional[bool]",
+          "default": true,
+          "description": "Persist discovered devices to database"
+        },
+        "identify": {
+          "type": "Optional[bool]",
+          "default": true,
+          "description": "Identify devices via OUI and SNMP"
+        }
+      },
+      "example": {
+        "cidr": "192.168.1.0/24",
+        "interface": "eth0",
+        "arp_timeout": 3.0,
+        "ping_timeout": 1.0,
+        "persist": true,
+        "identify": true
+      },
+      "source_code": "from pydantic import BaseModel\nfrom typing import Optional\n\nclass DiscoveryScanRequest(BaseModel):\n    cidr: Optional[str] = None\n    interface: Optional[str] = None\n    arp_timeout: Optional[float] = None\n    ping_timeout: Optional[float] = None\n    persist: Optional[bool] = True\n    identify: Optional[bool] = True"
+    },
+    "Settings": {
+      "module": "app.config",
+      "description": "Application configuration settings from environment variables",
+      "fields": {
+        "NETWORK_CIDR": {
+          "type": "str",
+          "default": "192.168.1.0/24",
+          "description": "Target network CIDR for discovery"
+        },
+        "INTERFACE": {
+          "type": "str | None",
+          "default": null,
+          "description": "Network interface name"
+        },
+        "SNMP_COMMUNITY": {
+          "type": "str",
+          "default": "public",
+          "description": "SNMP v2c community string"
+        },
+        "SNMP_PORT": {
+          "type": "int",
+          "default": 161,
+          "description": "SNMP port"
+        },
+        "SNMP_TIMEOUT": {
+          "type": "float",
+          "default": 1.0,
+          "description": "SNMP query timeout in seconds"
+        },
+        "INFLUX_URL": {
+          "type": "str | None",
+          "default": null,
+          "description": "InfluxDB server URL"
+        },
+        "INFLUX_TOKEN": {
+          "type": "str | None",
+          "default": null,
+          "description": "InfluxDB authentication token"
+        },
+        "INFLUX_ORG": {
+          "type": "str | None",
+          "default": null,
+          "description": "InfluxDB organization"
+        },
+        "INFLUX_BUCKET": {
+          "type": "str | None",
+          "default": null,
+          "description": "InfluxDB bucket name"
+        },
+        "ALERT_LATENCY_MS": {
+          "type": "float",
+          "default": 200.0,
+          "description": "Latency threshold in ms for alerts"
+        },
+        "ALERT_PACKET_LOSS": {
+          "type": "float",
+          "default": 0.5,
+          "description": "Packet loss threshold for alerts"
+        }
+      },
+      "source_code": "from pydantic_settings import BaseSettings, SettingsConfigDict\n\nclass Settings(BaseSettings):\n    NETWORK_CIDR: str = '192.168.1.0/24'\n    INTERFACE: str | None = None\n    SNMP_COMMUNITY: str = 'public'\n    SNMP_PORT: int = 161\n    SNMP_TIMEOUT: float = 1.0\n    INFLUX_URL: str | None = None\n    INFLUX_TOKEN: str | None = None\n    INFLUX_ORG: str | None = None\n    INFLUX_BUCKET: str | None = None\n    ALERT_LATENCY_MS: float = 200.0\n    ALERT_PACKET_LOSS: float = 0.5\n    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')"
+    }
+  }
+}
