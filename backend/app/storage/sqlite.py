@@ -6,7 +6,6 @@ from typing import Any, Optional
 
 import aiosqlite
 
-
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS devices (
   id TEXT PRIMARY KEY,

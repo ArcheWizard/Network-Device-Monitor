@@ -1,10 +1,12 @@
-from fastapi import FastAPI
-from .api.routers import devices, metrics, ws
-from .scheduler.jobs import init_scheduler
-from .storage.sqlite import init_sqlite
-from .storage.influx import init_influx
-from .config import settings
 from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+from .api.routers import devices, metrics, ws
+from .config import settings
+from .scheduler.jobs import init_scheduler
+from .storage.influx import init_influx
+from .storage.sqlite import init_sqlite
 
 
 @asynccontextmanager

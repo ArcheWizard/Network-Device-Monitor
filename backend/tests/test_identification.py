@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from app.services.identification import identify_device, vendor_from_mac
 
 

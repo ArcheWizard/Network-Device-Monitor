@@ -3,10 +3,10 @@ Tests for WebSocket streaming functionality.
 """
 
 import pytest
+from app.api.routers.ws import ConnectionManager, get_manager
+from app.main import app
 from fastapi.testclient import TestClient
 from starlette.routing import WebSocketRoute
-from app.main import app
-from app.api.routers.ws import ConnectionManager, get_manager
 
 
 @pytest.fixture

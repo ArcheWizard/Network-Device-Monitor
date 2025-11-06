@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
-import pytest
 
+import pytest
 from src.api_client import APIClient, _http_to_ws, fetch_devices
 
 

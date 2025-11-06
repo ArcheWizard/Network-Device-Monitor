@@ -1,7 +1,7 @@
-from httpx import AsyncClient, ASGITransport
+import pytest
 from app.main import app
 from app.storage.sqlite import init_sqlite
-import pytest
+from httpx import ASGITransport, AsyncClient
 
 
 @pytest.mark.asyncio

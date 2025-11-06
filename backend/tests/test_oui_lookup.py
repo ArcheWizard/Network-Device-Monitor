@@ -7,13 +7,8 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-from app.utils.oui import (
-    _normalize_mac_prefix,
-    download_oui_database,
-    load_oui_cache,
-    lookup_vendor,
-)
+from app.utils.oui import (_normalize_mac_prefix, download_oui_database,
+                           load_oui_cache, lookup_vendor)
 
 
 class TestMacNormalization:

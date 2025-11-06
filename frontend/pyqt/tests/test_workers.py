@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
+
 import pytest
 from PyQt6.QtCore import QCoreApplication
 from PyQt6.QtTest import QSignalSpy

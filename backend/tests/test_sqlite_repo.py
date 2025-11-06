@@ -1,5 +1,4 @@
 import pytest
-
 from app.storage.sqlite import init_sqlite
 
 

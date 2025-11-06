@@ -6,8 +6,8 @@ import logging
 import socket
 from typing import Dict, Optional
 
-from app.utils.oui import lookup_vendor
 from app.services.snmp import snmp_identify as snmp_query
+from app.utils.oui import lookup_vendor
 
 logger = logging.getLogger(__name__)
 

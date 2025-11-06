@@ -1,7 +1,9 @@
-from fastapi import FastAPI
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from ..services import discovery as discovery_service
 import time
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from fastapi import FastAPI
+
+from ..services import discovery as discovery_service
 
 _scheduler: AsyncIOScheduler | None = None
 
@@ -9,8 +11,8 @@ _scheduler: AsyncIOScheduler | None = None
 async def discovery_job():
     # Periodic discovery run; identify and persist results to repo
     try:
-        from ..services import identification
         from ..api.routers.ws import get_manager
+        from ..services import identification
 
         results = await discovery_service.scan()
         print(f"[scheduler] discovery found {len(results)} devices")
@@ -56,9 +58,11 @@ async def discovery_job():
                     "vendor": d.get("vendor"),
                     "device_type": None,
                     "status": "unknown",  # Will be updated by monitoring
-                    "first_seen": now
-                    if is_new
-                    else (existing.get("first_seen") if existing else now),
+                    "first_seen": (
+                        now
+                        if is_new
+                        else (existing.get("first_seen") if existing else now)
+                    ),
                     "last_seen": now,
                     "tags": {"source": d.get("source", "unknown")},
                 }
@@ -92,9 +96,9 @@ async def discovery_job():
 async def monitoring_tick():
     """Monitor all devices by pinging and storing metrics to InfluxDB."""
     try:
-        from ..services import monitoring
-        from ..main import app
         from ..api.routers.ws import get_manager
+        from ..main import app
+        from ..services import monitoring
 
         repo = getattr(app.state, "inventory_repo", None)
         influx_writer = getattr(app.state, "influx_writer", None)
@@ -182,12 +186,14 @@ async def monitoring_tick():
                 await repo.upsert_device(
                     {
                         "id": device_id,
-                        "status": current_status
-                        if current_status in ("up", "down")
-                        else previous_status,
-                        "last_seen": now
-                        if current_status == "up"
-                        else device.get("last_seen"),
+                        "status": (
+                            current_status
+                            if current_status in ("up", "down")
+                            else previous_status
+                        ),
+                        "last_seen": (
+                            now if current_status == "up" else device.get("last_seen")
+                        ),
                     }
                 )
 

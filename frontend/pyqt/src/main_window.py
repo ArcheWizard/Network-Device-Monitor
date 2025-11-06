@@ -1,23 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
 import asyncio
+from typing import Any, Dict, List, Optional
 
 from PyQt6.QtCore import QThread, pyqtSignal
-from PyQt6.QtWidgets import QApplication
-from PyQt6.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QLineEdit,
-    QStatusBar,
-)
+from PyQt6.QtWidgets import (QApplication, QHBoxLayout, QHeaderView, QLabel,
+                             QLineEdit, QMainWindow, QPushButton, QStatusBar,
+                             QTableWidget, QTableWidgetItem, QVBoxLayout,
+                             QWidget)
 
 try:
     from .api_client import APIClient  # type: ignore[attr-defined]

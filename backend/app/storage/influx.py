@@ -6,8 +6,8 @@ Stores device monitoring metrics (latency, packet loss, bandwidth) with timestam
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 try:
     from influxdb_client.client.influxdb_client import InfluxDBClient
     from influxdb_client.client.write.point import Point
-    from influxdb_client.domain.write_precision import WritePrecision
     from influxdb_client.client.write_api import SYNCHRONOUS
+    from influxdb_client.domain.write_precision import WritePrecision
 
     INFLUX_AVAILABLE = True
 except ImportError:
@@ -151,9 +151,9 @@ class InfluxMetricsWriter:
             for table in tables:
                 for record in table.records:
                     point = {
-                        "time": record.get_time().isoformat()
-                        if record.get_time()
-                        else None,
+                        "time": (
+                            record.get_time().isoformat() if record.get_time() else None
+                        ),
                         "field": record.get_field(),
                         "value": record.get_value(),
                     }

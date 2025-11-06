@@ -1,6 +1,5 @@
 from typing import Literal
 
-
 AlertSeverity = Literal["info", "warn", "crit"]
 
 

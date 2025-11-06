@@ -21,14 +21,9 @@ OID_SYS_OBJECTID = "1.3.6.1.2.1.1.2.0"  # sysObjectID
 
 # Import pysnmp (optional dependency)
 try:
-    from pysnmp.hlapi.asyncio import (
-        CommunityData,
-        ContextData,
-        ObjectIdentity,
-        ObjectType,
-        SnmpEngine,
-        UdpTransportTarget,
-    )
+    from pysnmp.hlapi.asyncio import (CommunityData, ContextData,
+                                      ObjectIdentity, ObjectType, SnmpEngine,
+                                      UdpTransportTarget)
 
     PYSNMP_AVAILABLE = True
 except ImportError:

@@ -1,9 +1,11 @@
+import time
+from typing import Optional
+
 from fastapi import APIRouter, Request
+from pydantic import BaseModel
+
 from ...models.device import Device
 from ...services import discovery
-from pydantic import BaseModel
-from typing import Optional
-import time
 
 router = APIRouter()
 

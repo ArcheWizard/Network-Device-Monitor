@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, AsyncGenerator, Optional
 import asyncio
 import json
 import logging
+from typing import Any, AsyncGenerator, Optional
 from urllib.parse import urlparse, urlunparse
 
 import httpx
