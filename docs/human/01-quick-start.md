@@ -55,7 +55,7 @@ make dev
 ### 6. Run Frontend (Optional)
 
 ```bash
-pip install -r frontend/pyqt/requirements.txt
+pip install -r frontend/pyqt/requirements/base.txt
 python frontend/pyqt/src/app.py
 ```
 

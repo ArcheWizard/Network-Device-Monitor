@@ -132,7 +132,7 @@ Backend will be available at `http://localhost:8000`
 
 ```bash
 cd frontend/pyqt
-pip install -r requirements.txt
+pip install -r requirements/base.txt
 python src/app.py
 ```
 

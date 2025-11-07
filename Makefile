@@ -26,7 +26,7 @@ venv:
 
 # Frontend deps (install into active venv)
 frontend-setup:
-	. .venv/bin/activate && pip install -r frontend/pyqt/requirements.txt || true
+	. .venv/bin/activate && pip install -r frontend/pyqt/requirements/base.txt || true
 
 # Backend setup convenience (delegates to backend/Makefile)
 backend-setup:
