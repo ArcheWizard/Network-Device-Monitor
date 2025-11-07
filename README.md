@@ -8,7 +8,15 @@ A powerful network monitoring and device discovery tool built with Python, FastA
 
 ## ✨ Features
 
-### 🔍 Network Discovery
+### � Authentication & Security (NEW in v0.2.0)
+
+- **JWT Token Authentication** - Secure token-based API authentication
+- **User Management** - Multi-user support with registration and login
+- **Role-Based Access Control** - Admin, Operator, and Viewer roles
+- **Password Security** - Bcrypt hashing with strength validation
+- **Optional Authentication** - Can be enabled/disabled via configuration
+
+### �🔍 Network Discovery
 
 - **Automated ARP Scanning** - Discover devices on your network using ARP
 - **Ping Sweep** - Fast parallel ping scanning with configurable concurrency

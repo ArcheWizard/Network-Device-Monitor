@@ -7,7 +7,10 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from ..models.metrics import LatencyMetric
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +117,30 @@ class InfluxMetricsWriter:
         except Exception as e:
             logger.error("Failed to write metric to InfluxDB: %s", e)
             return False
+
+    async def write_latency_metric(self, metric: "LatencyMetric") -> bool:
+        """Write a complete LatencyMetric model to InfluxDB.
+
+        This convenience method accepts a LatencyMetric model and writes
+        all its fields to InfluxDB with proper structure.
+
+        Args:
+            metric: LatencyMetric model instance
+
+        Returns:
+            True if write successful, False otherwise
+        """
+        return await self.write_metric(
+            measurement="latency",
+            tags={"device_id": metric.device_id},
+            fields={
+                "latency_ms": metric.latency_ms,
+                "packet_loss": metric.packet_loss,
+                "packets_sent": metric.packets_sent,
+                "packets_received": metric.packets_received,
+            },
+            timestamp=metric.timestamp,
+        )
 
     async def query_metrics(
         self, measurement: str, device_id: str, start: str = "-1h", limit: int = 100

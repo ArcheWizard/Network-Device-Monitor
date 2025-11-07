@@ -110,12 +110,12 @@
         }
       }
     },
-    "/api/discovery/scan": {
+    "/api/devices/discover": {
       "post": {
         "summary": "Trigger discovery scan",
         "description": "Initiate network discovery scan with optional parameters",
         "operationId": "discoveryScan",
-        "tags": ["Discovery"],
+        "tags": ["Devices"],
         "requestBody": {
           "required": false,
           "content": {

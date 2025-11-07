@@ -6,6 +6,8 @@ from typing import Any, Optional
 
 import aiosqlite
 
+from .user_repo import UserRepository
+
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS devices (
   id TEXT PRIMARY KEY,
@@ -19,6 +21,22 @@ CREATE TABLE IF NOT EXISTS devices (
   last_seen INTEGER,
   tags TEXT
 );
+
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  hashed_password TEXT NOT NULL,
+  full_name TEXT,
+  role TEXT NOT NULL DEFAULT 'viewer',
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER,
+  last_login INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 """
 
 
@@ -129,9 +147,31 @@ class SqliteInventoryRepo:
                 "tags": tags,
             }
 
+    async def delete_device(self, device_id: str) -> bool:
+        """Delete a device from the database.
 
-async def init_sqlite(db_path: Optional[str] = None) -> SqliteInventoryRepo:
-    """Initialize SQLite DB and return repository instance."""
+        Args:
+            device_id: Device identifier (MAC or IP)
+
+        Returns:
+            True if device was deleted, False if not found
+        """
+        async with self._conn.execute(
+            "DELETE FROM devices WHERE id=?",
+            (device_id,),
+        ) as cur:
+            await self._conn.commit()
+            return cur.rowcount > 0
+
+
+async def init_sqlite(
+    db_path: Optional[str] = None,
+) -> tuple[SqliteInventoryRepo, UserRepository]:
+    """Initialize SQLite DB and return repository instances.
+
+    Returns:
+        Tuple of (device_repository, user_repository)
+    """
     if db_path is None:
         # backend/app/storage/sqlite.py -> backend dir at parents[2]
         backend_dir = Path(__file__).resolve().parents[2]
@@ -141,6 +181,10 @@ async def init_sqlite(db_path: Optional[str] = None) -> SqliteInventoryRepo:
 
     conn = await aiosqlite.connect(db_path)
     await conn.execute("PRAGMA journal_mode=WAL;")
-    await conn.execute(SCHEMA_SQL)
+    await conn.executescript(SCHEMA_SQL)
     await conn.commit()
-    return SqliteInventoryRepo(conn)
+
+    device_repo = SqliteInventoryRepo(conn)
+    user_repo = UserRepository(conn)
+
+    return device_repo, user_repo

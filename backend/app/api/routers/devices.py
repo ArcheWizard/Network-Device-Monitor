@@ -1,5 +1,5 @@
 import time
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
@@ -14,14 +14,46 @@ _DEVICES: dict[str, Device] = {}
 
 
 @router.get("/devices", response_model=list[Device])
-async def list_devices(request: Request):
+async def list_devices(
+    request: Request,
+    status: Optional[Literal["up", "down", "unknown", "all"]] = "all",
+    limit: int = 100,
+    offset: int = 0,
+):
+    """List all devices with optional filtering and pagination.
+
+    Args:
+        status: Filter by device status (up/down/unknown/all)
+        limit: Maximum number of results (default 100)
+        offset: Pagination offset (default 0)
+
+    Returns:
+        List of Device objects
+    """
     # Try to use the SQLite repository if initialized; fallback to stub
     repo = getattr(request.app.state, "inventory_repo", None)
     if repo:
         items = await repo.list_devices()
+
+        # Filter by status if not "all"
+        if status != "all":
+            items = [d for d in items if d.get("status") == status]
+
+        # Apply pagination
+        paginated = items[offset : offset + limit]
+
         # Convert dicts to Device models for response_model enforcement
-        return [Device(**it) for it in items]
-    return list(_DEVICES.values())
+        return [Device(**it) for it in paginated]
+
+    # Fallback to in-memory stub
+    devices_list = list(_DEVICES.values())
+
+    # Filter by status if not "all"
+    if status != "all":
+        devices_list = [d for d in devices_list if d.status == status]
+
+    # Apply pagination
+    return devices_list[offset : offset + limit]
 
 
 @router.get("/devices/{device_id}", response_model=Device)
@@ -41,6 +73,39 @@ async def get_device(device_id: str, request: Request):
     raise HTTPException(status_code=404, detail="Device not found")
 
 
+@router.delete("/devices/{device_id}", status_code=204)
+async def delete_device(device_id: str, request: Request):
+    """Delete a device from inventory.
+
+    Args:
+        device_id: Device identifier (MAC or IP)
+
+    Returns:
+        204 No Content on success
+
+    Raises:
+        404: Device not found
+        503: Database unavailable
+    """
+    from fastapi import HTTPException
+    from fastapi.responses import Response
+
+    repo = getattr(request.app.state, "inventory_repo", None)
+    if not repo:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    # Check if device exists
+    existing = await repo.get_device(device_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    # Delete device
+    await repo.delete_device(device_id)
+
+    # Return 204 No Content
+    return Response(status_code=204)
+
+
 class DiscoveryScanRequest(BaseModel):
     cidr: Optional[str] = None
     interface: Optional[str] = None
@@ -50,7 +115,7 @@ class DiscoveryScanRequest(BaseModel):
     identify: Optional[bool] = True  # default to identifying devices (OUI + SNMP)
 
 
-@router.post("/discovery/scan")
+@router.post("/devices/discover")
 async def discovery_scan(request: Request, req: DiscoveryScanRequest | None = None):
     """Trigger on-demand discovery scan and return discovered devices.
 

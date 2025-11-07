@@ -100,7 +100,7 @@
     "discovery_scan_minimal": {
       "request": {
         "method": "POST",
-        "url": "http://localhost:8000/api/discovery/scan",
+        "url": "http://localhost:8000/api/devices/discover",
         "headers": {
           "Content-Type": "application/json"
         },
@@ -137,12 +137,12 @@
           "identified": true
         }
       },
-      "curl": "curl -X POST http://localhost:8000/api/discovery/scan -H 'Content-Type: application/json' -d '{}'"
+      "curl": "curl -X POST http://localhost:8000/api/devices/discover -H 'Content-Type: application/json' -d '{}'"
     },
     "discovery_scan_custom": {
       "request": {
         "method": "POST",
-        "url": "http://localhost:8000/api/discovery/scan",
+        "url": "http://localhost:8000/api/devices/discover",
         "headers": {
           "Content-Type": "application/json"
         },
@@ -164,7 +164,7 @@
           "identified": true
         }
       },
-      "curl": "curl -X POST http://localhost:8000/api/discovery/scan -H 'Content-Type: application/json' -d '{\"cidr\": \"10.0.0.0/24\", \"interface\": \"eth0\", \"persist\": true, \"identify\": true}'"
+      "curl": "curl -X POST http://localhost:8000/api/devices/discover -H 'Content-Type: application/json' -d '{\"cidr\": \"10.0.0.0/24\", \"interface\": \"eth0\", \"persist\": true, \"identify\": true}'"
     },
     "get_latency_metrics": {
       "request": {
@@ -198,11 +198,11 @@
   "python_examples": {
     "using_httpx": {
       "description": "Python examples using httpx library",
-      "code": "import httpx\nimport asyncio\n\nBASE_URL = 'http://localhost:8000'\n\nasync def list_devices():\n    async with httpx.AsyncClient() as client:\n        response = await client.get(f'{BASE_URL}/api/devices')\n        return response.json()\n\nasync def trigger_scan(cidr='192.168.1.0/24'):\n    async with httpx.AsyncClient() as client:\n        response = await client.post(\n            f'{BASE_URL}/api/discovery/scan',\n            json={'cidr': cidr, 'persist': True, 'identify': True}\n        )\n        return response.json()\n\nasync def get_metrics(device_id, start='-1h'):\n    async with httpx.AsyncClient() as client:\n        response = await client.get(\n            f'{BASE_URL}/api/metrics/latency',\n            params={'device_id': device_id, 'start': start}\n        )\n        return response.json()\n\nif __name__ == '__main__':\n    devices = asyncio.run(list_devices())\n    print(f'Found {len(devices)} devices')"
+      "code": "import httpx\nimport asyncio\n\nBASE_URL = 'http://localhost:8000'\n\nasync def list_devices():\n    async with httpx.AsyncClient() as client:\n        response = await client.get(f'{BASE_URL}/api/devices')\n        return response.json()\n\nasync def trigger_scan(cidr='192.168.1.0/24'):\n    async with httpx.AsyncClient() as client:\n        response = await client.post(\n            f'{BASE_URL}/api/devices/discover',\n            json={'cidr': cidr, 'persist': True, 'identify': True}\n        )\n        return response.json()\n\nasync def get_metrics(device_id, start='-1h'):\n    async with httpx.AsyncClient() as client:\n        response = await client.get(\n            f'{BASE_URL}/api/metrics/latency',\n            params={'device_id': device_id, 'start': start}\n        )\n        return response.json()\n\nif __name__ == '__main__':\n    devices = asyncio.run(list_devices())\n    print(f'Found {len(devices)} devices')"
     },
     "using_requests": {
       "description": "Python examples using requests library",
-      "code": "import requests\n\nBASE_URL = 'http://localhost:8000'\n\ndef list_devices():\n    response = requests.get(f'{BASE_URL}/api/devices')\n    return response.json()\n\ndef trigger_scan(cidr='192.168.1.0/24'):\n    response = requests.post(\n        f'{BASE_URL}/api/discovery/scan',\n        json={'cidr': cidr, 'persist': True, 'identify': True}\n    )\n    return response.json()\n\ndef get_device(device_id):\n    response = requests.get(f'{BASE_URL}/api/devices/{device_id}')\n    if response.status_code == 404:\n        return None\n    return response.json()\n\nif __name__ == '__main__':\n    devices = list_devices()\n    print(f'Found {len(devices)} devices')\n    \n    scan_result = trigger_scan()\n    print(f'Discovered {scan_result[\"count\"]} devices')"
+      "code": "import requests\n\nBASE_URL = 'http://localhost:8000'\n\ndef list_devices():\n    response = requests.get(f'{BASE_URL}/api/devices')\n    return response.json()\n\ndef trigger_scan(cidr='192.168.1.0/24'):\n    response = requests.post(\n        f'{BASE_URL}/api/devices/discover',\n        json={'cidr': cidr, 'persist': True, 'identify': True}\n    )\n    return response.json()\n\ndef get_device(device_id):\n    response = requests.get(f'{BASE_URL}/api/devices/{device_id}')\n    if response.status_code == 404:\n        return None\n    return response.json()\n\nif __name__ == '__main__':\n    devices = list_devices()\n    print(f'Found {len(devices)} devices')\n    \n    scan_result = trigger_scan()\n    print(f'Discovered {scan_result[\"count\"]} devices')"
     }
   }
 }

@@ -1,8 +1,9 @@
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 
-from .api.routers import devices, metrics, ws
+from .api.routers import auth, devices, metrics, ws
 from .config import settings
 from .scheduler.jobs import init_scheduler
 from .storage.influx import init_influx
@@ -13,8 +14,9 @@ from .storage.sqlite import init_sqlite
 async def lifespan(app: FastAPI):
     # Initialize SQLite repository and attach to app state
     try:
-        repo = await init_sqlite()
-        app.state.inventory_repo = repo
+        device_repo, user_repo = await init_sqlite()
+        app.state.inventory_repo = device_repo
+        app.state.user_repo = user_repo
     except Exception as e:
         # Non-fatal for now; endpoints may fallback to in-memory stubs
         print(f"[startup] SQLite init failed: {e}")
@@ -41,8 +43,9 @@ async def lifespan(app: FastAPI):
     # Optional teardown here
 
 
-app = FastAPI(title="Network Device Monitor", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Network Device Monitor", version="0.2.0", lifespan=lifespan)
 
+app.include_router(auth.router, prefix="/api", tags=["auth"])
 app.include_router(devices.router, prefix="/api", tags=["devices"])
 app.include_router(metrics.router, prefix="/api", tags=["metrics"])
 app.include_router(ws.router, tags=["ws"])
@@ -50,4 +53,4 @@ app.include_router(ws.router, tags=["ws"])
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}

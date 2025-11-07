@@ -6,7 +6,7 @@ Future development plans and feature roadmap for the Network Device Monitor.
 
 Build a comprehensive, easy-to-use network monitoring solution suitable for home labs, small businesses, and educational environments.
 
-## Current Version: 0.1.0 (MVP)
+## Current Version: 0.2.0
 
 ### Core Features
 
@@ -18,27 +18,30 @@ Build a comprehensive, easy-to-use network monitoring solution suitable for home
 - ✅ WebSocket real-time updates
 - ✅ PyQt6 desktop frontend
 - ✅ Docker deployment
+- ✅ JWT token authentication
+- ✅ User management (registration, login)
+- ✅ Role-based access control (Admin/Operator/Viewer)
 
-## Version 0.2.0 (Q2 2024)
+## Version 0.2.0 (Q2 2024) ✅ COMPLETED
 
-### Authentication & Security
+### Authentication & Security ✅
 
-- [ ] **API Authentication** - Token-based authentication
+- [x] **API Authentication** - Token-based authentication
   - JWT token generation and validation
   - API key management
   - User session management
 
-- [ ] **User Management** - Multi-user support
+- [x] **User Management** - Multi-user support
   - User registration and login
   - Role-based access control (RBAC)
-  - Admin/viewer roles
+  - Admin/operator/viewer roles
 
 - [ ] **SNMPv3 Support** - Secure SNMP
   - Authentication and encryption
   - User credential management
   - Backward compatibility with v2c
 
-### Enhanced Discovery
+### Enhanced Discovery (Moved to v0.3.0)
 
 - [ ] **LLDP Discovery** - Link Layer Discovery Protocol
   - Collect neighbor information

@@ -8,7 +8,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import Any, Dict
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
+from ..models.metrics import LatencyMetric
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +89,44 @@ async def ping_device(ip: str, count: int = 4, timeout: float = 2.0) -> Dict[str
             "latency_max": None,
             "packet_loss": 100.0,
         }
+
+
+async def create_latency_metric(
+    device_id: str, ip: str, count: int = 4, timeout: float = 2.0
+) -> Optional[LatencyMetric]:
+    """Create a complete LatencyMetric model from ping results.
+
+    This function wraps ping_device and returns a LatencyMetric model
+    that includes all fields as documented in the architecture.
+
+    Args:
+        device_id: Device identifier (MAC address or IP)
+        ip: IP address to ping
+        count: Number of ping packets to send
+        timeout: Timeout in seconds per ping
+
+    Returns:
+        LatencyMetric model or None if ping failed completely
+    """
+    ping_result = await ping_device(ip=ip, count=count, timeout=timeout)
+
+    # If device is down or error, we can't create a valid metric
+    if ping_result["status"] in ["down", "error"] or ping_result["latency_avg"] is None:
+        return None
+
+    # Calculate packets received from packet loss percentage
+    packets_sent = count
+    packet_loss_ratio = ping_result["packet_loss"] / 100.0
+    packets_received = int(packets_sent * (1 - packet_loss_ratio))
+
+    return LatencyMetric(
+        device_id=device_id,
+        timestamp=datetime.now(timezone.utc),
+        latency_ms=ping_result["latency_avg"],
+        packet_loss=packet_loss_ratio,  # Convert percentage to ratio (0.0 to 1.0)
+        packets_sent=packets_sent,
+        packets_received=packets_received,
+    )
 
 
 async def tick_all():

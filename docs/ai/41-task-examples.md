@@ -22,7 +22,7 @@ async def scheduled_discovery():
     """Run discovery scan and log results."""
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{BASE_URL}/api/discovery/scan",
+            f"{BASE_URL}/api/devices/discover",
             json={
                 "cidr": "192.168.1.0/24",
                 "persist": True,
@@ -60,7 +60,7 @@ async def discover_and_notify():
 
         # Run discovery
         scan = await client.post(
-            f"{BASE_URL}/api/discovery/scan",
+            f"{BASE_URL}/api/devices/discover",
             json={"persist": True, "identify": True}
         )
         result = scan.json()
@@ -351,7 +351,7 @@ async def discover_all_networks():
     async with httpx.AsyncClient(timeout=120.0) as client:
         tasks = [
             client.post(
-                f"{BASE_URL}/api/discovery/scan",
+                f"{BASE_URL}/api/devices/discover",
                 json={"cidr": cidr, "persist": True, "identify": True}
             )
             for cidr in NETWORKS

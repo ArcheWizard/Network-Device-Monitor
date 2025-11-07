@@ -35,8 +35,9 @@ async def test_discovery_scan_persists_to_repo(monkeypatch):
     monkeypatch.setattr(devices_router.discovery, "scan", fake_scan)
 
     # Initialize SQLite repo for the app
-    repo = await init_sqlite(":memory:")
-    app.state.inventory_repo = repo
+    device_repo, user_repo = await init_sqlite(":memory:")
+    app.state.inventory_repo = device_repo
+    app.state.user_repo = user_repo
 
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
@@ -47,7 +48,7 @@ async def test_discovery_scan_persists_to_repo(monkeypatch):
         monkeypatch.setattr(identification, "identify_device", fake_identify)
 
         # Scan with persist=True (default)
-        r = await ac.post("/api/discovery/scan", json={"persist": True})
+        r = await ac.post("/api/devices/discover", json={"persist": True})
         assert r.status_code == 200
         data = r.json()
         assert data["count"] == 2

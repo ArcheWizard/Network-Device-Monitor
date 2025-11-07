@@ -71,7 +71,7 @@ curl http://localhost:8000/api/health
 ### Trigger Discovery
 
 ```bash
-curl -X POST http://localhost:8000/api/discovery/scan \
+curl -X POST http://localhost:8000/api/devices/discover \
   -H "Content-Type: application/json" \
   -d '{"persist": true, "identify": true}'
 ```

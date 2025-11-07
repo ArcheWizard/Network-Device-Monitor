@@ -16,7 +16,7 @@ The discovery system uses three complementary methods to find network devices:
 
 Via API:
 ```bash
-curl -X POST http://localhost:8000/api/discovery/scan \
+curl -X POST http://localhost:8000/api/devices/discover \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
@@ -29,7 +29,7 @@ import httpx
 async def scan():
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            "http://localhost:8000/api/discovery/scan",
+            "http://localhost:8000/api/devices/discover",
             json={"persist": True, "identify": True}
         )
         result = response.json()

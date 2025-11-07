@@ -160,7 +160,7 @@ curl http://localhost:8000/api/devices/550e8400-e29b-41d4-a716-446655440000
 
 Trigger network discovery.
 
-**Description**: Initiates a network scan to discover devices. This is an async operation that returns immediately. Results are broadcast via WebSocket.
+**Description**: Initiates and completes a network scan synchronously to discover devices. Returns discovered devices immediately.
 
 **Request**
 
@@ -172,41 +172,51 @@ curl -X POST http://localhost:8000/api/devices/discover
 
 ```json
 {
-  "network": "192.168.1.0/24",
-  "interface": "eth0"
+  "cidr": "192.168.1.0/24",
+  "interface": "eth0",
+  "arp_timeout": 3.0,
+  "ping_timeout": 1.0,
+  "persist": true,
+  "identify": true
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| network | string | No | CIDR notation (defaults to config) |
-| interface | string | No | Network interface (defaults to auto) |
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| cidr | string | No | From config | Network CIDR notation |
+| interface | string | No | Auto-detect | Network interface name |
+| arp_timeout | float | No | 3.0 | ARP scan timeout in seconds |
+| ping_timeout | float | No | 1.0 | Ping timeout in seconds |
+| persist | boolean | No | true | Save discovered devices to database |
+| identify | boolean | No | true | Identify devices via OUI and SNMP |
 
-**Response** `202 Accepted`
+**Response** `200 OK`
 
 ```json
 {
-  "message": "Discovery started",
-  "job_id": "discover_2024-01-15_10-30-00"
+  "count": 5,
+  "devices": [
+    {
+      "ip": "192.168.1.10",
+      "mac": "aa:bb:cc:dd:ee:ff",
+      "hostname": "router.local",
+      "vendor": "Cisco Systems",
+      "source": "arp"
+    },
+    {
+      "ip": "192.168.1.11",
+      "mac": "11:22:33:44:55:66",
+      "hostname": "switch.local",
+      "vendor": "HP Inc.",
+      "source": "mdns"
+    }
+  ],
+  "persisted": true,
+  "identified": true
 }
 ```
 
-**WebSocket Events**
-
-During discovery, clients connected to `/ws/stream` receive:
-
-```json
-{
-  "type": "device_discovered",
-  "ts": 1705317000,
-  "device": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "ip": "192.168.1.10",
-    "mac": "00:11:22:33:44:55",
-    ...
-  }
-}
-```
+**Note**: While discovery is synchronous, device status changes and metrics are still broadcast via WebSocket to connected clients.
 
 #### DELETE /api/devices/{device_id}
 
@@ -538,7 +548,7 @@ curl -X POST http://localhost:8000/api/devices/discover
 # Custom network for discovery
 curl -X POST http://localhost:8000/api/devices/discover \
   -H "Content-Type: application/json" \
-  -d '{"network": "10.0.0.0/24"}'
+  -d '{"cidr": "10.0.0.0/24", "persist": true}'
 
 # Get metrics
 curl "http://localhost:8000/api/metrics/{device_id}?hours=24"

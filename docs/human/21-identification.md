@@ -14,7 +14,7 @@ The identification system uses three complementary methods:
 
 ```bash
 # Identification runs automatically during discovery with identify=true
-curl -X POST http://localhost:8000/api/discovery/scan \
+curl -X POST http://localhost:8000/api/devices/discover \
   -H "Content-Type: application/json" \
   -d '{"identify": true}'
 ```

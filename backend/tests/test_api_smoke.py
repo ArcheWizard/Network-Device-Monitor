@@ -10,4 +10,6 @@ async def test_health():
     ) as ac:
         r = await ac.get("/api/health")
         assert r.status_code == 200
-        assert r.json()["status"] == "ok"
+        data = r.json()
+        assert data["status"] == "healthy"
+        assert "timestamp" in data
