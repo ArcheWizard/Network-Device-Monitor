@@ -8,6 +8,28 @@ from ..services import discovery as discovery_service
 _scheduler: AsyncIOScheduler | None = None
 
 
+async def _handle_duplicate_devices(repo, mac: str | None, new_ip: str | None, new_id: str) -> None:
+    """
+    Archive old devices with the same MAC but different IP/ID.
+    This handles cases like laptops changing IP addresses.
+    """
+    if not mac:
+        return
+
+    # Find existing device with same MAC
+    existing_by_mac = await repo.get_device_by_mac(mac)
+
+    if existing_by_mac and existing_by_mac.get("id") != new_id:
+        old_id = existing_by_mac.get("id")
+        old_ip = existing_by_mac.get("ip")
+        old_status = existing_by_mac.get("status")
+
+        # Only archive if not already archived
+        if old_status != "archived":
+            print(f"[scheduler] archiving duplicate device: {old_id} (IP changed from {old_ip} to {new_ip})")
+            await repo.archive_device(old_id)
+
+
 async def discovery_job():
     # Periodic discovery run; identify and persist results to repo
     try:
@@ -45,6 +67,11 @@ async def discovery_job():
             now = int(time.time())
             for d in results:
                 dev_id = d.get("mac") or d.get("ip") or "unknown"
+                mac = d.get("mac")
+                ip = d.get("ip")
+
+                # Handle duplicate devices (same MAC, different IP)
+                await _handle_duplicate_devices(repo, mac, ip, dev_id)
 
                 # Check if this is a new device
                 existing = await repo.get_device(dev_id)
@@ -52,8 +79,8 @@ async def discovery_job():
 
                 device_data = {
                     "id": dev_id,
-                    "ip": d.get("ip"),
-                    "mac": d.get("mac"),
+                    "ip": ip,
+                    "mac": mac,
                     "hostname": d.get("hostname"),
                     "vendor": d.get("vendor"),
                     "device_type": None,

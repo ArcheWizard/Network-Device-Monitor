@@ -19,8 +19,13 @@ CREATE TABLE IF NOT EXISTS devices (
   status TEXT,
   first_seen INTEGER,
   last_seen INTEGER,
+  archived_at INTEGER,
   tags TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_devices_status ON devices(status);
+CREATE INDEX IF NOT EXISTS idx_devices_mac ON devices(mac);
+CREATE INDEX IF NOT EXISTS idx_devices_ip ON devices(ip);
 
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
@@ -63,8 +68,8 @@ class SqliteInventoryRepo:
         tags_str = json.dumps(data.get("tags") or {})
         async with self._conn.execute(
             """
-            INSERT INTO devices(id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, tags)
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO devices(id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, archived_at, tags)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
               ip=COALESCE(excluded.ip, devices.ip),
               mac=COALESCE(excluded.mac, devices.mac),
@@ -74,6 +79,7 @@ class SqliteInventoryRepo:
               status=COALESCE(excluded.status, devices.status),
               first_seen=COALESCE(devices.first_seen, excluded.first_seen),
               last_seen=COALESCE(excluded.last_seen, devices.last_seen),
+              archived_at=COALESCE(excluded.archived_at, devices.archived_at),
               tags=COALESCE(excluded.tags, devices.tags)
             """,
             (
@@ -86,6 +92,7 @@ class SqliteInventoryRepo:
                 data.get("status"),
                 data.get("first_seen"),
                 data.get("last_seen"),
+                data.get("archived_at"),
                 tags_str,
             ),
         ):
@@ -95,7 +102,7 @@ class SqliteInventoryRepo:
     async def list_devices(self) -> list[dict]:
         rows = []
         async with self._conn.execute(
-            "SELECT id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, tags FROM devices"
+            "SELECT id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, archived_at, tags FROM devices"
         ) as cur:
             async for row in cur:
                 rows.append(row)
@@ -103,7 +110,7 @@ class SqliteInventoryRepo:
         for r in rows:
             tags: dict[str, Any] = {}
             try:
-                tags = json.loads(r[9]) if r[9] else {}
+                tags = json.loads(r[10]) if r[10] else {}
             except Exception:
                 tags = {}
             devices.append(
@@ -117,6 +124,7 @@ class SqliteInventoryRepo:
                     "status": r[6],
                     "first_seen": r[7],
                     "last_seen": r[8],
+                    "archived_at": r[9],
                     "tags": tags,
                 }
             )
@@ -124,14 +132,14 @@ class SqliteInventoryRepo:
 
     async def get_device(self, id: str) -> Optional[dict]:
         async with self._conn.execute(
-            "SELECT id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, tags FROM devices WHERE id=?",
+            "SELECT id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, archived_at, tags FROM devices WHERE id=?",
             (id,),
         ) as cur:
             row = await cur.fetchone()
             if not row:
                 return None
             try:
-                tags = json.loads(row[9]) if row[9] else {}
+                tags = json.loads(row[10]) if row[10] else {}
             except Exception:
                 tags = {}
             return {
@@ -144,6 +152,7 @@ class SqliteInventoryRepo:
                 "status": row[6],
                 "first_seen": row[7],
                 "last_seen": row[8],
+                "archived_at": row[9],
                 "tags": tags,
             }
 
@@ -162,6 +171,163 @@ class SqliteInventoryRepo:
         ) as cur:
             await self._conn.commit()
             return cur.rowcount > 0
+
+    async def archive_device(self, device_id: str) -> bool:
+        """Archive a device (soft delete).
+
+        Args:
+            device_id: Device identifier
+
+        Returns:
+            True if device was archived, False if not found
+        """
+        import time
+        async with self._conn.execute(
+            "UPDATE devices SET status = 'archived', archived_at = ? WHERE id = ?",
+            (int(time.time()), device_id),
+        ) as cur:
+            await self._conn.commit()
+            return cur.rowcount > 0
+
+    async def restore_device(self, device_id: str) -> bool:
+        """Restore an archived device.
+
+        Args:
+            device_id: Device identifier
+
+        Returns:
+            True if device was restored, False if not found
+        """
+        async with self._conn.execute(
+            "UPDATE devices SET status = 'unknown', archived_at = NULL WHERE id = ?",
+            (device_id,),
+        ) as cur:
+            await self._conn.commit()
+            return cur.rowcount > 0
+
+    async def list_live_devices(self) -> list[dict]:
+        """Get only live/offline devices (not archived)."""
+        rows = []
+        async with self._conn.execute(
+            "SELECT id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, archived_at, tags "
+            "FROM devices WHERE status != 'archived' OR status IS NULL ORDER BY last_seen DESC"
+        ) as cur:
+            async for row in cur:
+                rows.append(row)
+
+        devices: list[dict] = []
+        for r in rows:
+            tags: dict[str, Any] = {}
+            try:
+                tags = json.loads(r[10]) if r[10] else {}
+            except Exception:
+                tags = {}
+            devices.append(
+                {
+                    "id": r[0],
+                    "ip": r[1],
+                    "mac": r[2],
+                    "hostname": r[3],
+                    "vendor": r[4],
+                    "device_type": r[5],
+                    "status": r[6],
+                    "first_seen": r[7],
+                    "last_seen": r[8],
+                    "archived_at": r[9],
+                    "tags": tags,
+                }
+            )
+        return devices
+
+    async def list_archived_devices(self) -> list[dict]:
+        """Get archived devices."""
+        rows = []
+        async with self._conn.execute(
+            "SELECT id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, archived_at, tags "
+            "FROM devices WHERE status = 'archived' ORDER BY archived_at DESC"
+        ) as cur:
+            async for row in cur:
+                rows.append(row)
+
+        devices: list[dict] = []
+        for r in rows:
+            tags: dict[str, Any] = {}
+            try:
+                tags = json.loads(r[10]) if r[10] else {}
+            except Exception:
+                tags = {}
+            devices.append(
+                {
+                    "id": r[0],
+                    "ip": r[1],
+                    "mac": r[2],
+                    "hostname": r[3],
+                    "vendor": r[4],
+                    "device_type": r[5],
+                    "status": r[6],
+                    "first_seen": r[7],
+                    "last_seen": r[8],
+                    "archived_at": r[9],
+                    "tags": tags,
+                }
+            )
+        return devices
+
+    async def get_device_by_mac(self, mac: str) -> Optional[dict]:
+        """Get device by MAC address."""
+        async with self._conn.execute(
+            "SELECT id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, archived_at, tags "
+            "FROM devices WHERE mac = ?",
+            (mac,),
+        ) as cur:
+            row = await cur.fetchone()
+            if not row:
+                return None
+            try:
+                tags = json.loads(row[10]) if row[10] else {}
+            except Exception:
+                tags = {}
+            return {
+                "id": row[0],
+                "ip": row[1],
+                "mac": row[2],
+                "hostname": row[3],
+                "vendor": row[4],
+                "device_type": row[5],
+                "status": row[6],
+                "first_seen": row[7],
+                "last_seen": row[8],
+                "archived_at": row[9],
+                "tags": tags,
+            }
+
+    async def get_device_by_hostname(self, hostname: str) -> Optional[dict]:
+        """Get device by hostname."""
+        async with self._conn.execute(
+            "SELECT id, ip, mac, hostname, vendor, device_type, status, first_seen, last_seen, archived_at, tags "
+            "FROM devices WHERE hostname = ?",
+            (hostname,),
+        ) as cur:
+            row = await cur.fetchone()
+            if not row:
+                return None
+            try:
+                tags = json.loads(row[10]) if row[10] else {}
+            except Exception:
+                tags = {}
+            return {
+                "id": row[0],
+                "ip": row[1],
+                "mac": row[2],
+                "hostname": row[3],
+                "vendor": row[4],
+                "device_type": row[5],
+                "status": row[6],
+                "first_seen": row[7],
+                "last_seen": row[8],
+                "archived_at": row[9],
+                "tags": tags,
+            }
 
 
 async def init_sqlite(

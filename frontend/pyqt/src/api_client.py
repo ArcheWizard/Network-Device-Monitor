@@ -14,22 +14,52 @@ import websockets
 logger = logging.getLogger(__name__)
 
 
-def _http_to_ws(url: str) -> str:
-    """Convert http(s) base URL to ws(s) for websockets."""
+def _http_to_ws(url: str, token: Optional[str] = None) -> str:
+    """Convert http(s) base URL to ws(s) for websockets.
+
+    Args:
+        url: Base HTTP(S) URL
+        token: Optional JWT token to append as query parameter
+
+    Returns:
+        WebSocket URL with optional token parameter
+    """
     parsed = urlparse(url)
     scheme = "wss" if parsed.scheme == "https" else "ws"
-    return urlunparse((scheme, parsed.netloc, "/ws/stream", "", "", ""))
+    ws_url = urlunparse((scheme, parsed.netloc, "/ws/stream", "", "", ""))
+
+    # Add token as query parameter if provided
+    if token:
+        ws_url += f"?token={token}"
+
+    return ws_url
 
 
 class APIClient:
-    def __init__(self, base_url: str = "http://localhost:8000"):
+    def __init__(self, base_url: str = "http://localhost:8000", auth_token: Optional[str] = None):
         self.base_url = base_url.rstrip("/")
+        self.auth_token = auth_token
         self._client: Optional[httpx.AsyncClient] = None
 
     async def _client_get(self) -> httpx.AsyncClient:
         if self._client is None:
-            self._client = httpx.AsyncClient(base_url=self.base_url, timeout=10.0)
+            headers = {}
+            if self.auth_token:
+                headers["Authorization"] = f"Bearer {self.auth_token}"
+            self._client = httpx.AsyncClient(
+                base_url=self.base_url,
+                timeout=10.0,
+                headers=headers
+            )
         return self._client
+
+    def set_auth_token(self, token: Optional[str]) -> None:
+        """Update authentication token and recreate client if needed."""
+        self.auth_token = token
+        if self._client is not None:
+            # Close existing client and recreate with new token
+            asyncio.create_task(self.aclose())
+            self._client = None
 
     async def aclose(self) -> None:
         if self._client is not None:
@@ -45,6 +75,63 @@ class APIClient:
         assert isinstance(data, list)
         return data  # type: ignore[return-value]
 
+    async def fetch_live_devices(self) -> list[dict[str, Any]]:
+        """GET /api/devices/live - only non-archived devices"""
+        client = await self._client_get()
+        r = await client.get("/api/devices/live")
+        r.raise_for_status()
+        data = r.json()
+        assert isinstance(data, list)
+        return data  # type: ignore[return-value]
+
+    async def fetch_archived_devices(self) -> list[dict[str, Any]]:
+        """GET /api/devices/archived - only archived devices"""
+        client = await self._client_get()
+        r = await client.get("/api/devices/archived")
+        r.raise_for_status()
+        data = r.json()
+        assert isinstance(data, list)
+        return data  # type: ignore[return-value]
+
+    async def delete_device(self, device_id: str) -> None:
+        """DELETE /api/devices/{device_id}
+
+        Args:
+            device_id: Device identifier (MAC or IP)
+
+        Raises:
+            httpx.HTTPStatusError: If delete fails (404, 403, 503, etc.)
+        """
+        client = await self._client_get()
+        r = await client.delete(f"/api/devices/{device_id}")
+        r.raise_for_status()
+
+    async def archive_device(self, device_id: str) -> None:
+        """POST /api/devices/{device_id}/archive
+
+        Args:
+            device_id: Device identifier (MAC or IP)
+
+        Raises:
+            httpx.HTTPStatusError: If archive fails (404, 403, 503, etc.)
+        """
+        client = await self._client_get()
+        r = await client.post(f"/api/devices/{device_id}/archive")
+        r.raise_for_status()
+
+    async def restore_device(self, device_id: str) -> None:
+        """POST /api/devices/{device_id}/restore
+
+        Args:
+            device_id: Device identifier (MAC or IP)
+
+        Raises:
+            httpx.HTTPStatusError: If restore fails (404, 403, 503, etc.)
+        """
+        client = await self._client_get()
+        r = await client.post(f"/api/devices/{device_id}/restore")
+        r.raise_for_status()
+
     async def trigger_scan(
         self,
         cidr: Optional[str] = None,
@@ -54,7 +141,7 @@ class APIClient:
         persist: Optional[bool] = True,
         identify: Optional[bool] = True,
     ) -> dict[str, Any]:
-        """POST /api/discovery/scan with optional parameters."""
+        """POST /api/devices/scan with optional parameters."""
         client = await self._client_get()
         payload: dict[str, Any] = {}
         if cidr is not None:
@@ -69,7 +156,7 @@ class APIClient:
             payload["persist"] = persist
         if identify is not None:
             payload["identify"] = identify
-        r = await client.post("/api/discovery/scan", json=payload or None)
+        r = await client.post("/api/devices/discover", json=payload or None)
         r.raise_for_status()
         return r.json()
 
@@ -81,7 +168,7 @@ class APIClient:
         Yields:
             Parsed JSON messages from the server.
         """
-        ws_url = _http_to_ws(self.base_url)
+        ws_url = _http_to_ws(self.base_url, self.auth_token)
         backoff = reconnect_backoff
         while True:
             try:

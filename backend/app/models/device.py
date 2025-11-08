@@ -10,7 +10,8 @@ class Device(BaseModel):
     hostname: Optional[str] = None
     vendor: Optional[str] = None
     device_type: Optional[str] = None
-    status: Optional[Literal["up", "down", "unknown"]] = "unknown"
+    status: Optional[Literal["up", "down", "unknown", "archived"]] = "unknown"
     first_seen: Optional[int] = Field(default=None, description="unix ts")
     last_seen: Optional[int] = Field(default=None, description="unix ts")
+    archived_at: Optional[int] = Field(default=None, description="unix ts when archived")
     tags: dict[str, str] = {}

@@ -1,11 +1,13 @@
 import time
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from ...models.device import Device
+from ...models.user import User
 from ...services import discovery
+from ..dependencies import get_current_user, require_operator
 
 router = APIRouter()
 
@@ -19,8 +21,11 @@ async def list_devices(
     status: Optional[Literal["up", "down", "unknown", "all"]] = "all",
     limit: int = 100,
     offset: int = 0,
+    current_user: Optional[User] = Depends(get_current_user),
 ):
     """List all devices with optional filtering and pagination.
+
+    Requires: Viewer role or higher (if auth enabled)
 
     Args:
         status: Filter by device status (up/down/unknown/all)
@@ -56,9 +61,60 @@ async def list_devices(
     return devices_list[offset : offset + limit]
 
 
+# IMPORTANT: Specific routes MUST come before parameterized routes to avoid conflicts
+# FastAPI matches routes in order, so /devices/live and /devices/archived must be
+# defined before /devices/{device_id} to prevent "live" and "archived" from being
+# treated as device IDs.
+
+@router.get("/devices/live", response_model=list[Device])
+async def list_live_devices(
+    request: Request,
+    current_user: Optional[User] = Depends(get_current_user),
+):
+    """List only live/offline devices (excludes archived).
+
+    Requires: Viewer role or higher (if auth enabled)
+
+    Returns:
+        List of non-archived Device objects
+    """
+    repo = getattr(request.app.state, "inventory_repo", None)
+    if repo:
+        items = await repo.list_live_devices()
+        return [Device(**it) for it in items]
+    return []
+
+
+@router.get("/devices/archived", response_model=list[Device])
+async def list_archived_devices(
+    request: Request,
+    current_user: Optional[User] = Depends(get_current_user),
+):
+    """List archived devices.
+
+    Requires: Viewer role or higher (if auth enabled)
+
+    Returns:
+        List of archived Device objects
+    """
+    repo = getattr(request.app.state, "inventory_repo", None)
+    if repo:
+        items = await repo.list_archived_devices()
+        return [Device(**it) for it in items]
+    return []
+
+
+# Parameterized routes come AFTER specific routes
 @router.get("/devices/{device_id}", response_model=Device)
-async def get_device(device_id: str, request: Request):
-    """Get a single device by ID."""
+async def get_device(
+    device_id: str,
+    request: Request,
+    current_user: Optional[User] = Depends(get_current_user),
+):
+    """Get a single device by ID.
+
+    Requires: Viewer role or higher (if auth enabled)
+    """
     repo = getattr(request.app.state, "inventory_repo", None)
     if repo:
         item = await repo.get_device(device_id)
@@ -74,8 +130,14 @@ async def get_device(device_id: str, request: Request):
 
 
 @router.delete("/devices/{device_id}", status_code=204)
-async def delete_device(device_id: str, request: Request):
+async def delete_device(
+    device_id: str,
+    request: Request,
+    current_user: User = Depends(require_operator),
+):
     """Delete a device from inventory.
+
+    Requires: Operator role or higher
 
     Args:
         device_id: Device identifier (MAC or IP)
@@ -106,6 +168,79 @@ async def delete_device(device_id: str, request: Request):
     return Response(status_code=204)
 
 
+@router.post("/devices/{device_id}/archive", status_code=204)
+async def archive_device(
+    device_id: str,
+    request: Request,
+    current_user: User = Depends(require_operator),
+):
+    """Archive a device (soft delete).
+
+    Requires: Operator role or higher
+
+    Args:
+        device_id: Device identifier (MAC or IP)
+
+    Returns:
+        204 No Content on success
+
+    Raises:
+        404: Device not found
+        503: Database unavailable
+    """
+    from fastapi import HTTPException
+    from fastapi.responses import Response
+
+    repo = getattr(request.app.state, "inventory_repo", None)
+    if not repo:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    # Check if device exists
+    existing = await repo.get_device(device_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    # Archive device
+    await repo.archive_device(device_id)
+
+    return Response(status_code=204)
+
+
+@router.post("/devices/{device_id}/restore", status_code=204)
+async def restore_device(
+    device_id: str,
+    request: Request,
+    current_user: User = Depends(require_operator),
+):
+    """Restore an archived device.
+
+    Requires: Operator role or higher
+
+    Args:
+        device_id: Device identifier (MAC or IP)
+
+    Returns:
+        204 No Content on success
+
+    Raises:
+        404: Device not found
+        503: Database unavailable
+    """
+    from fastapi import HTTPException
+    from fastapi.responses import Response
+
+    repo = getattr(request.app.state, "inventory_repo", None)
+    if not repo:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    # Restore device
+    success = await repo.restore_device(device_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    return Response(status_code=204)
+
+
 class DiscoveryScanRequest(BaseModel):
     cidr: Optional[str] = None
     interface: Optional[str] = None
@@ -116,8 +251,14 @@ class DiscoveryScanRequest(BaseModel):
 
 
 @router.post("/devices/discover")
-async def discovery_scan(request: Request, req: DiscoveryScanRequest | None = None):
+async def discovery_scan(
+    request: Request,
+    req: DiscoveryScanRequest | None = None,
+    current_user: User = Depends(require_operator),
+):
     """Trigger on-demand discovery scan and return discovered devices.
+
+    Requires: Operator role or higher
 
     If persist=True (default), discovered devices are upserted to SQLite.
     If identify=True (default), discovered devices are identified via OUI and SNMP.

@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, status
+
+from ...config import settings
+from ...utils.auth import decode_access_token
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +85,11 @@ def get_manager() -> ConnectionManager:
 
 
 @router.websocket("/ws/stream")
-async def stream(ws: WebSocket):
+async def stream(ws: WebSocket, token: Optional[str] = Query(None)):
     """WebSocket endpoint for streaming device updates and metrics.
+
+    Authentication via query parameter: /ws/stream?token=<jwt_token>
+    If REQUIRE_AUTH=True, valid token must be provided.
 
     Event types:
     - hello: Initial connection confirmation
@@ -92,6 +98,43 @@ async def stream(ws: WebSocket):
     - device_down: Device went offline
     - latency: Latency metrics update
     """
+    # Authenticate if auth is required
+    if settings.REQUIRE_AUTH:
+        if not token:
+            logger.warning("WebSocket connection rejected: No token provided")
+            await ws.close(code=status.WS_1008_POLICY_VIOLATION, reason="Authentication required")
+            return
+
+        # Decode and validate token
+        payload = decode_access_token(token)
+        if not payload:
+            logger.warning("WebSocket connection rejected: Invalid token")
+            await ws.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token")
+            return
+
+        # Verify user exists and is active
+        username = payload.get("sub")
+        if not username:
+            logger.warning("WebSocket connection rejected: Invalid token payload")
+            await ws.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token payload")
+            return
+
+        # Check user in database (optional but recommended)
+        user_repo = getattr(ws.app.state, "user_repo", None)
+        if user_repo:
+            try:
+                user_data = await user_repo.get_user_by_username(username)
+                if not user_data or not user_data.get("is_active", True):
+                    logger.warning("WebSocket connection rejected: User inactive or not found")
+                    await ws.close(code=status.WS_1008_POLICY_VIOLATION, reason="User inactive")
+                    return
+            except Exception as e:
+                logger.error("Failed to verify user for WebSocket: %s", e)
+                await ws.close(code=status.WS_1011_INTERNAL_ERROR, reason="Authentication error")
+                return
+
+        logger.info("WebSocket authenticated for user: %s", username)
+
     await manager.connect(ws)
     try:
         # Send welcome message

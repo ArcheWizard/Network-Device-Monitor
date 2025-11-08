@@ -24,6 +24,12 @@ class TestHttpToWs:
     def test_strips_trailing_slash(self):
         assert _http_to_ws("http://localhost:8000/") == "ws://localhost:8000/ws/stream"
 
+    def test_with_token(self):
+        assert (
+            _http_to_ws("http://localhost:8000", "test-token")
+            == "ws://localhost:8000/ws/stream?token=test-token"
+        )
+
 
 class TestAPIClient:
     """Tests for APIClient class."""
@@ -75,7 +81,7 @@ class TestAPIClient:
             assert result["count"] == 5
             mock_client.post.assert_called_once()
             call_args = mock_client.post.call_args
-            assert call_args[0][0] == "/api/discovery/scan"
+            assert call_args[0][0] == "/api/devices/discover"
             assert call_args[1]["json"]["cidr"] == "192.168.1.0/24"
 
     @pytest.mark.asyncio
